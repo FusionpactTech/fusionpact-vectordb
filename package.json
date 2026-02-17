@@ -1,0 +1,66 @@
+{
+  "name": "fusionpact",
+  "version": "0.1.0",
+  "description": "The Agent-Native Vector Database — HNSW indexing, built-in RAG, MCP server, multi-tenancy, and agent memory architecture.",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "bin": {
+    "fusionpact": "./bin/cli.js"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./mcp": "./src/mcp/server.js",
+    "./memory": "./src/memory/agent-memory.js",
+    "./embeddings": "./src/embeddings/index.js"
+  },
+  "scripts": {
+    "start": "node bin/cli.js serve",
+    "mcp": "node src/mcp/server.js",
+    "test": "node test/run.js",
+    "bench": "node test/benchmark.js",
+    "demo": "node examples/quickstart.js"
+  },
+  "keywords": [
+    "vector-database",
+    "hnsw",
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "rag",
+    "retrieval-augmented-generation",
+    "embeddings",
+    "semantic-search",
+    "multi-tenancy",
+    "agent-memory",
+    "langchain",
+    "llamaindex",
+    "crewai",
+    "fusionpact"
+  ],
+  "author": "FusionPact Technologies <engineering@fusionpact.com>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FusionPact/fusionpact-vectordb"
+  },
+  "homepage": "https://fusionpact.dev",
+  "bugs": {
+    "url": "https://github.com/FusionPact/fusionpact-vectordb/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.30.0"
+  },
+  "devDependencies": {},
+  "files": [
+    "src/",
+    "bin/",
+    "LICENSE",
+    "README.md"
+  ]
+}
