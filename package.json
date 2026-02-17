@@ -50,13 +50,6 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {
-    "better-sqlite3": "^11.0.0"
-  },
-  "optionalDependencies": {
-    "@anthropic-ai/sdk": "^0.30.0"
-  },
-  "devDependencies": {},
   "files": [
     "src/",
     "bin/",

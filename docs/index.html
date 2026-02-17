@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FusionPact — The Agent-Native Vector Database</title>
+<meta name="description" content="Open-source vector database built for AI agents. HNSW indexing, built-in RAG, MCP server, multi-tenancy, and agent memory architecture.">
+<meta property="og:title" content="FusionPact — The Agent-Native Vector Database">
+<meta property="og:description" content="Add AI memory to any agent in 30 seconds. Open source, zero cost, local-first.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://fusionpact.com/vectordb">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07090F;--bg2:#0C1019;--bg3:#111827;
+  --surf:#151C2C;--surf2:#1A2338;--surf3:#1F2B42;
+  --bdr:#243049;--bdr2:#2D3D5B;
+  --txt:#E2E8F0;--txt2:#94A3B8;--dim:#64748B;
+  --accent:#3B82F6;--accentL:#60A5FA;--accentD:#1E40AF;
+  --purple:#A78BFA;--purpleD:#7C3AED;
+  --cyan:#22D3EE;--cyanD:#0891B2;
+  --green:#34D399;--greenD:#059669;
+  --pink:#F472B6;--pinkD:#DB2777;
+  --orange:#FB923C;
+  --rad:12px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--txt);line-height:1.6;overflow-x:hidden}
+a{color:var(--accentL);text-decoration:none}
+a:hover{text-decoration:underline}
+code,.mono{font-family:'DM Mono',monospace}
+.container{max-width:1140px;margin:0 auto;padding:0 24px}
+
+/* ── Animated Background ── */
+.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(59,130,246,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.03) 1px,transparent 1px);
+  background-size:60px 60px}
+.bg-glow{position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:900px;height:600px;
+  background:radial-gradient(ellipse,rgba(59,130,246,0.08) 0%,rgba(167,139,250,0.04) 40%,transparent 70%);
+  z-index:0;pointer-events:none}
+.bg-glow2{position:fixed;bottom:-300px;right:-200px;width:700px;height:700px;
+  background:radial-gradient(ellipse,rgba(34,211,238,0.05) 0%,transparent 60%);
+  z-index:0;pointer-events:none}
+
+section{position:relative;z-index:1}
+
+/* ── Nav ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 0;
+  background:rgba(7,9,15,0.8);backdrop-filter:blur(20px);border-bottom:1px solid rgba(36,48,73,0.5)}
+nav .container{display:flex;align-items:center;justify-content:space-between}
+.nav-logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;color:#fff}
+.nav-logo-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--accent),var(--purple));font-size:12px;font-weight:800;color:#fff;font-family:'DM Mono',monospace}
+.nav-links{display:flex;gap:28px;align-items:center}
+.nav-links a{color:var(--txt2);font-size:14px;font-weight:500;transition:color .2s}
+.nav-links a:hover{color:#fff;text-decoration:none}
+.nav-btn{padding:8px 20px;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:13px;
+  border:none;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.nav-btn:hover{background:var(--accentL);text-decoration:none;transform:translateY(-1px)}
+
+/* ── Hero ── */
+.hero{padding:160px 0 100px;text-align:center}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:50px;
+  background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);
+  font-size:13px;color:var(--accentL);font-weight:500;margin-bottom:24px;
+  animation:fadeUp .6s ease both}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.hero h1{font-size:clamp(42px,6vw,72px);font-weight:900;line-height:1.05;margin-bottom:20px;
+  letter-spacing:-2px;animation:fadeUp .6s ease .1s both}
+.hero h1 .gradient{background:linear-gradient(135deg,var(--accentL),var(--purple),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{font-size:clamp(16px,2vw,20px);color:var(--txt2);max-width:640px;margin:0 auto 36px;
+  line-height:1.7;animation:fadeUp .6s ease .2s both}
+.hero-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;animation:fadeUp .6s ease .3s both}
+.btn-primary{padding:14px 32px;border-radius:10px;background:var(--accent);color:#fff;
+  font-weight:600;font-size:15px;border:none;cursor:pointer;transition:all .25s;
+  display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(59,130,246,0.3)}
+.btn-primary:hover{background:var(--accentL);transform:translateY(-2px);box-shadow:0 8px 30px rgba(59,130,246,0.4);text-decoration:none}
+.btn-outline{padding:14px 32px;border-radius:10px;background:transparent;color:var(--txt);
+  font-weight:600;font-size:15px;border:1px solid var(--bdr2);cursor:pointer;transition:all .25s;
+  display:inline-flex;align-items:center;gap:8px}
+.btn-outline:hover{border-color:var(--accent);color:var(--accentL);transform:translateY(-2px);text-decoration:none}
+
+/* ── Install Bar ── */
+.install-bar{margin-top:40px;animation:fadeUp .6s ease .4s both}
+.install-cmd{display:inline-flex;align-items:center;gap:12px;padding:12px 24px;
+  background:var(--surf);border:1px solid var(--bdr);border-radius:10px;font-family:'DM Mono',monospace;
+  font-size:14px;color:var(--green)}
+.install-cmd .prompt{color:var(--dim)}
+.install-cmd .copy-btn{background:none;border:none;color:var(--dim);cursor:pointer;padding:4px;font-size:16px;transition:color .2s}
+.install-cmd .copy-btn:hover{color:var(--accentL)}
+
+/* ── Stats ── */
+.stats-row{display:flex;justify-content:center;gap:48px;margin-top:56px;animation:fadeUp .6s ease .5s both}
+.stat{text-align:center}
+.stat-val{font-size:28px;font-weight:800;color:#fff}
+.stat-val .unit{font-size:16px;color:var(--accentL);font-weight:600}
+.stat-lbl{font-size:12px;color:var(--dim);margin-top:2px;text-transform:uppercase;letter-spacing:1px}
+
+/* ── Section Headers ── */
+.section-hdr{text-align:center;margin-bottom:48px}
+.section-hdr .tag{display:inline-block;padding:4px 12px;border-radius:50px;font-size:11px;
+  font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px}
+.section-hdr h2{font-size:clamp(28px,4vw,42px);font-weight:800;letter-spacing:-1px;line-height:1.1;margin-bottom:12px}
+.section-hdr p{font-size:16px;color:var(--txt2);max-width:560px;margin:0 auto}
+
+/* ── Features ── */
+.features{padding:80px 0}
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.feat-card{padding:28px;border-radius:14px;background:var(--surf);border:1px solid var(--bdr);
+  transition:all .3s;position:relative;overflow:hidden}
+.feat-card:hover{border-color:var(--accent);transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+.feat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity .3s}
+.feat-card:hover::before{opacity:1}
+.feat-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;margin-bottom:14px}
+.feat-card h3{font-size:16px;font-weight:700;margin-bottom:6px}
+.feat-card p{font-size:13px;color:var(--txt2);line-height:1.6}
+
+/* ── Code Block ── */
+.code-section{padding:80px 0}
+.code-container{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.code-info h2{font-size:clamp(28px,3.5vw,38px);font-weight:800;letter-spacing:-1px;margin-bottom:16px;line-height:1.15}
+.code-info p{font-size:15px;color:var(--txt2);margin-bottom:20px;line-height:1.7}
+.code-info .highlight{color:var(--accentL);font-weight:600}
+.code-block{background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;overflow:hidden}
+.code-header{padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bdr);background:var(--surf)}
+.code-dot{width:10px;height:10px;border-radius:50%}
+.code-header span{font-size:12px;color:var(--dim);margin-left:8px;font-family:'DM Mono',monospace}
+.code-body{padding:20px;font-family:'DM Mono',monospace;font-size:12.5px;line-height:1.8;overflow-x:auto}
+.code-body .kw{color:var(--purple)}
+.code-body .fn{color:var(--accentL)}
+.code-body .str{color:var(--green)}
+.code-body .cm{color:var(--dim)}
+.code-body .num{color:var(--orange)}
+.code-body .op{color:var(--txt2)}
+
+/* ── MCP Section ── */
+.mcp-section{padding:80px 0}
+.mcp-card{background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(167,139,250,0.04));
+  border:1px solid rgba(59,130,246,0.15);border-radius:20px;padding:48px;
+  display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+.mcp-card h2{font-size:32px;font-weight:800;letter-spacing:-1px;margin-bottom:12px}
+.mcp-card h2 .em{color:var(--cyan)}
+.mcp-card p{font-size:15px;color:var(--txt2);line-height:1.7;margin-bottom:20px}
+.mcp-tools{display:grid;gap:8px}
+.mcp-tool{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,0,0,0.3);
+  border-radius:8px;border:1px solid var(--bdr);font-family:'DM Mono',monospace;font-size:12px}
+.mcp-tool .name{color:var(--cyan);font-weight:500}
+.mcp-tool .desc{color:var(--dim);font-size:11px}
+
+/* ── Comparison Table ── */
+.compare-section{padding:80px 0}
+.compare-table{width:100%;border-collapse:collapse;font-size:14px}
+.compare-table thead{background:var(--surf)}
+.compare-table th{padding:14px 16px;text-align:left;font-weight:600;border-bottom:2px solid var(--bdr);color:var(--txt2);font-size:13px}
+.compare-table th:first-child{border-radius:10px 0 0 0}
+.compare-table th:last-child{border-radius:0 10px 0 0}
+.compare-table td{padding:12px 16px;border-bottom:1px solid var(--bdr);text-align:center}
+.compare-table td:first-child{text-align:left;font-weight:500;color:var(--txt)}
+.compare-table tr:hover td{background:rgba(59,130,246,0.03)}
+.compare-table .yes{color:var(--green);font-weight:700;font-size:16px}
+.compare-table .no{color:var(--dim);font-size:14px}
+.compare-table .fp-col{background:rgba(59,130,246,0.06);border-left:2px solid var(--accent);border-right:2px solid var(--accent)}
+.compare-table thead .fp-col{background:rgba(59,130,246,0.12);color:var(--accentL);font-weight:700;
+  border-top:2px solid var(--accent)}
+
+/* ── Architecture ── */
+.arch-section{padding:80px 0}
+.arch-diagram{background:var(--surf);border:1px solid var(--bdr);border-radius:16px;padding:36px;
+  font-family:'DM Mono',monospace;font-size:13px;line-height:2;text-align:center;color:var(--txt2)}
+.arch-box{display:inline-block;padding:8px 16px;border-radius:8px;margin:4px;font-weight:500;font-size:12px}
+.arch-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:12px 0}
+
+/* ── CTA ── */
+.cta-section{padding:100px 0;text-align:center}
+.cta-card{background:linear-gradient(135deg,var(--accentD),var(--purpleD));border-radius:24px;
+  padding:60px 40px;position:relative;overflow:hidden}
+.cta-card::before{content:'';position:absolute;top:-50%;right:-20%;width:400px;height:400px;
+  background:radial-gradient(circle,rgba(255,255,255,0.05),transparent 60%);pointer-events:none}
+.cta-card h2{font-size:clamp(28px,4vw,40px);font-weight:800;margin-bottom:12px;letter-spacing:-1px}
+.cta-card p{font-size:16px;color:rgba(255,255,255,0.8);margin-bottom:28px;max-width:500px;margin-left:auto;margin-right:auto}
+.cta-buttons{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-white{padding:14px 32px;border-radius:10px;background:#fff;color:var(--accentD);
+  font-weight:700;font-size:15px;border:none;cursor:pointer;transition:all .25s;
+  display:inline-flex;align-items:center;gap:8px}
+.btn-white:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,0.3);text-decoration:none}
+.btn-ghost{padding:14px 32px;border-radius:10px;background:transparent;color:#fff;
+  font-weight:600;font-size:15px;border:1px solid rgba(255,255,255,0.3);cursor:pointer;transition:all .25s;
+  display:inline-flex;align-items:center;gap:8px}
+.btn-ghost:hover{border-color:#fff;transform:translateY(-2px);text-decoration:none}
+
+/* ── Footer ── */
+footer{padding:40px 0;border-top:1px solid var(--bdr);text-align:center}
+footer p{font-size:13px;color:var(--dim)}
+footer a{color:var(--txt2)}
+
+/* ── Animations ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+.reveal{opacity:0;transform:translateY(30px);transition:all .6s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+
+/* ── Responsive ── */
+@media(max-width:900px){
+  .features-grid{grid-template-columns:1fr 1fr}
+  .code-container{grid-template-columns:1fr}
+  .mcp-card{grid-template-columns:1fr}
+  .nav-links{display:none}
+  .stats-row{gap:24px;flex-wrap:wrap}
+  .compare-table{font-size:12px}
+  .compare-table th,.compare-table td{padding:8px 10px}
+}
+@media(max-width:600px){
+  .features-grid{grid-template-columns:1fr}
+  .hero h1{font-size:36px}
+  .cta-card{padding:40px 20px}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+<div class="bg-glow2"></div>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="container">
+    <div class="nav-logo">
+      <div class="nav-logo-icon">FP</div>
+      FusionPact
+    </div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#mcp">MCP Server</a>
+      <a href="#code">Quick Start</a>
+      <a href="#compare">Compare</a>
+      <a href="https://github.com/FusionpactTech/fusionpact-vectordb" target="_blank">GitHub</a>
+      <a href="https://www.npmjs.com/package/fusionpact" target="_blank" class="nav-btn">npm install ↗</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Open Source · Apache 2.0 · Zero Dependencies
+    </div>
+    <h1>The <span class="gradient">Agent-Native</span><br>Vector Database</h1>
+    <p>HNSW indexing, built-in RAG, MCP server, multi-tenancy, and agent memory architecture. Add AI memory to any agent in 30 seconds.</p>
+    <div class="hero-actions">
+      <a href="https://github.com/FusionpactTech/fusionpact-vectordb" target="_blank" class="btn-primary">⭐ Star on GitHub</a>
+      <a href="#code" class="btn-outline">Quick Start →</a>
+    </div>
+    <div class="install-bar">
+      <div class="install-cmd">
+        <span class="prompt">$</span>
+        <span id="install-text">npm install fusionpact</span>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('npm install fusionpact');this.textContent='✓';setTimeout(()=>this.textContent='⧉',1500)" title="Copy">⧉</button>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val">O(log N)<span class="unit"></span></div><div class="stat-lbl">HNSW Search</div></div>
+      <div class="stat"><div class="stat-val">0<span class="unit">deps</span></div><div class="stat-lbl">Dependencies</div></div>
+      <div class="stat"><div class="stat-val">10<span class="unit">tools</span></div><div class="stat-lbl">MCP Server</div></div>
+      <div class="stat"><div class="stat-val">30<span class="unit">sec</span></div><div class="stat-lbl">Setup Time</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ── -->
+<section class="features" id="features">
+  <div class="container">
+    <div class="section-hdr reveal">
+      <div class="tag" style="background:rgba(59,130,246,0.1);color:var(--accentL)">CORE FEATURES</div>
+      <h2>Everything AI Agents Need.<br>Nothing They Don't.</h2>
+      <p>Built from the ground up for the agentic AI era — not retrofitted from a generic database.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(167,139,250,0.1);color:var(--purple)">⚡</div>
+        <h3>HNSW Indexing</h3>
+        <p>Multi-layer graph for O(log N) approximate nearest neighbor search. Configurable M, ef_construction, ef_search parameters. Serializable for persistence.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(34,211,238,0.1);color:var(--cyan)">🔌</div>
+        <h3>MCP Server</h3>
+        <p>Built-in Model Context Protocol server. Any AI agent — Claude, Cursor, GPT — can connect to FusionPact as persistent memory. Zero integration code.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(244,114,182,0.1);color:var(--pink)">🧠</div>
+        <h3>Agent Memory</h3>
+        <p>Three memory types: episodic (events), semantic (knowledge), procedural (tools). Each agent gets isolated memory with automatic tenant separation.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(52,211,153,0.1);color:var(--green)">📄</div>
+        <h3>One-Click RAG</h3>
+        <p>Text → chunks → embeddings → HNSW index → searchable context. One function call. Auto-generates LLM-ready prompts with ranked source attribution.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(251,146,60,0.1);color:var(--orange)">🔒</div>
+        <h3>Multi-Tenancy</h3>
+        <p>Zero-trust soft-isolation. Automatic _tenant_id injection on every insert and query. No code path can bypass the filter. Enterprise-grade data privacy.</p>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(96,165,250,0.1);color:var(--accentL)">🆓</div>
+        <h3>Zero Cost, Zero Deps</h3>
+        <p>Local-first, runs on your machine. No API keys required with Ollama embeddings. Zero npm dependencies. Apache 2.0 licensed. Free forever.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CODE ── -->
+<section class="code-section" id="code">
+  <div class="container">
+    <div class="code-container">
+      <div class="code-info reveal">
+        <h2>Ship AI features in<br><span style="color:var(--green)">10 lines of code</span></h2>
+        <p>Stop building RAG plumbing. FusionPact handles <span class="highlight">chunking, embedding, indexing, and retrieval</span> in one call. Works with Ollama (free, local) or OpenAI.</p>
+        <p>Every operation returns in milliseconds. Every result includes relevance scores. Every chunk is traceable to its source document.</p>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <a href="https://github.com/FusionpactTech/fusionpact-vectordb#-quickstart" target="_blank" class="btn-primary" style="font-size:13px;padding:10px 20px">Full Docs →</a>
+        </div>
+      </div>
+      <div class="code-block reveal">
+        <div class="code-header">
+          <div class="code-dot" style="background:#FF5F57"></div>
+          <div class="code-dot" style="background:#FEBC2E"></div>
+          <div class="code-dot" style="background:#28C840"></div>
+          <span>quickstart.js</span>
+        </div>
+        <div class="code-body">
+<span class="kw">const</span> { FusionEngine, RAGPipeline } = <span class="fn">require</span>(<span class="str">'fusionpact'</span>);
+<br><br>
+<span class="cm">// Create engine & RAG pipeline</span>
+<br>
+<span class="kw">const</span> engine = <span class="kw">new</span> <span class="fn">FusionEngine</span>();
+<br>
+<span class="kw">const</span> rag = <span class="kw">new</span> <span class="fn">RAGPipeline</span>(engine, { <span class="str">embedder</span>: <span class="str">'ollama'</span> });
+<br><br>
+<span class="cm">// Ingest any text — auto chunks, embeds, indexes</span>
+<br>
+<span class="kw">await</span> rag.<span class="fn">ingest</span>(<span class="str">'Your document text...'</span>, {
+<br>&nbsp;&nbsp;source: <span class="str">'safety-manual.pdf'</span>
+<br>});
+<br><br>
+<span class="cm">// Search with natural language</span>
+<br>
+<span class="kw">const</span> ctx = <span class="kw">await</span> rag.<span class="fn">buildContext</span>(
+<br>&nbsp;&nbsp;<span class="str">'What are the safety protocols?'</span>
+<br>);
+<br><br>
+console.<span class="fn">log</span>(ctx.prompt); <span class="cm">// → LLM-ready prompt</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── MCP ── -->
+<section class="mcp-section" id="mcp">
+  <div class="container">
+    <div class="mcp-card reveal">
+      <div>
+        <h2>Built-in <span class="em">MCP Server</span></h2>
+        <p>FusionPact is the first vector database that ships as an MCP (Model Context Protocol) server. Connect Claude Desktop, Cursor, or any AI agent to persistent vector memory — no glue code.</p>
+        <div class="code-block" style="margin-top:20px">
+          <div class="code-header">
+            <div class="code-dot" style="background:#FF5F57"></div>
+            <div class="code-dot" style="background:#FEBC2E"></div>
+            <div class="code-dot" style="background:#28C840"></div>
+            <span>claude_desktop_config.json</span>
+          </div>
+          <div class="code-body">
+{<br>
+&nbsp;&nbsp;<span class="str">"mcpServers"</span>: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"fusionpact"</span>: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"command"</span>: <span class="str">"npx"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"args"</span>: [<span class="str">"fusionpact"</span>, <span class="str">"mcp"</span>]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;}<br>
+}
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--cyan);margin-bottom:12px">10 MCP TOOLS AVAILABLE</div>
+        <div class="mcp-tools">
+          <div class="mcp-tool"><span class="name">fusionpact_search</span><span class="desc">Semantic search with filters</span></div>
+          <div class="mcp-tool"><span class="name">fusionpact_rag_ingest</span><span class="desc">One-click document RAG</span></div>
+          <div class="mcp-tool"><span class="name">fusionpact_rag_query</span><span class="desc">Build LLM context</span></div>
+          <div class="mcp-tool"><span class="name">fusionpact_memory_remember</span><span class="desc">Store episodic memory</span></div>
+          <div class="mcp-tool"><span class="name">fusionpact_memory_recall</span><span class="desc">Contextual recall</span></div>
+          <div class="mcp-tool"><span class="name">fusionpact_memory_learn</span><span class="desc">Add semantic knowledge</span></div>
+          <div class="mcp-tool"><span class="name">fusionpact_insert</span><span class="desc">Insert with auto-embed</span></div>
+          <div class="mcp-tool"><span class="name">fusionpact_create_collection</span><span class="desc">Create HNSW collection</span></div>
+          <div class="mcp-tool"><span class="name">fusionpact_list_collections</span><span class="desc">List all collections</span></div>
+          <div class="mcp-tool"><span class="name">fusionpact_drop_collection</span><span class="desc">Drop collection</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── COMPARE ── -->
+<section class="compare-section" id="compare">
+  <div class="container">
+    <div class="section-hdr reveal">
+      <div class="tag" style="background:rgba(52,211,153,0.1);color:var(--green)">COMPARISON</div>
+      <h2>How FusionPact Stacks Up</h2>
+      <p>Purpose-built for AI agents, not retrofitted from a generic database.</p>
+    </div>
+    <div style="overflow-x:auto" class="reveal">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th class="fp-col">FusionPact</th>
+            <th>Pinecone</th>
+            <th>Chroma</th>
+            <th>Qdrant</th>
+            <th>Milvus</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>MCP Server (Agent-Native)</td><td class="fp-col"><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td></tr>
+          <tr><td>Agent Memory Architecture</td><td class="fp-col"><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td></tr>
+          <tr><td>One-Click RAG Pipeline</td><td class="fp-col"><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td></tr>
+          <tr><td>Local-First / Zero-Cost</td><td class="fp-col"><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td></tr>
+          <tr><td>Multi-Tenancy</td><td class="fp-col"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td></tr>
+          <tr><td>Zero Dependencies</td><td class="fp-col"><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td></tr>
+          <tr><td>HNSW Index</td><td class="fp-col"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td></tr>
+          <tr><td>In-Process (No Server)</td><td class="fp-col"><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td></tr>
+          <tr><td>< 30 Second Setup</td><td class="fp-col"><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="yes">✓</span></td><td><span class="no">✗</span></td><td><span class="no">✗</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── MEMORY ARCHITECTURE ── -->
+<section class="arch-section" id="memory">
+  <div class="container">
+    <div class="section-hdr reveal">
+      <div class="tag" style="background:rgba(244,114,182,0.1);color:var(--pink)">AGENT MEMORY</div>
+      <h2>Memory That Thinks Like an Agent</h2>
+      <p>Three memory types — episodic, semantic, procedural — with per-agent isolation and GDPR-friendly forget.</p>
+    </div>
+    <div class="arch-diagram reveal">
+      <div style="font-weight:600;color:var(--txt);font-size:15px;margin-bottom:16px">FusionPact Agent Memory Architecture</div>
+      <div class="arch-row">
+        <div class="arch-box" style="background:rgba(167,139,250,0.15);color:var(--purple);border:1px solid rgba(167,139,250,0.3)">🗓 Episodic Memory<br><span style="font-size:10px;color:var(--dim)">Conversations · Events · User Preferences</span></div>
+        <div class="arch-box" style="background:rgba(59,130,246,0.15);color:var(--accentL);border:1px solid rgba(59,130,246,0.3)">📚 Semantic Memory<br><span style="font-size:10px;color:var(--dim)">Documents · Knowledge · Facts</span></div>
+        <div class="arch-box" style="background:rgba(34,211,238,0.15);color:var(--cyan);border:1px solid rgba(34,211,238,0.3)">🔧 Procedural Memory<br><span style="font-size:10px;color:var(--dim)">Tool Schemas · API Specs · Workflows</span></div>
+      </div>
+      <div style="color:var(--dim);font-size:20px;margin:8px 0">↕</div>
+      <div class="arch-row">
+        <div class="arch-box" style="background:rgba(52,211,153,0.12);color:var(--green);border:1px solid rgba(52,211,153,0.25)">HNSW Vector Index · Cosine Similarity · Metadata Filters</div>
+      </div>
+      <div style="color:var(--dim);font-size:20px;margin:8px 0">↕</div>
+      <div class="arch-row">
+        <div class="arch-box" style="background:rgba(251,146,60,0.12);color:var(--orange);border:1px solid rgba(251,146,60,0.25)">Per-Agent Tenant Isolation · GDPR Forget · Cross-Memory Search</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-card reveal">
+      <h2>Start Building with FusionPact</h2>
+      <p>Zero cost. Zero dependencies. Zero config.<br>Just <code style="background:rgba(255,255,255,0.1);padding:2px 8px;border-radius:4px">npm install fusionpact</code> and go.</p>
+      <div class="cta-buttons">
+        <a href="https://github.com/FusionpactTech/fusionpact-vectordb" target="_blank" class="btn-white">⭐ Star on GitHub</a>
+        <a href="https://www.npmjs.com/package/fusionpact" target="_blank" class="btn-ghost">View on npm →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="container">
+    <p>Built by <a href="https://fusionpact.com" target="_blank">FusionPact Technologies</a> · Apache 2.0 License · <a href="https://github.com/FusionpactTech/fusionpact-vectordb" target="_blank">GitHub</a> · <a href="https://www.npmjs.com/package/fusionpact" target="_blank">npm</a></p>
+  </div>
+</footer>
+
+<!-- ── Scroll Reveal ── -->
+<script>
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
