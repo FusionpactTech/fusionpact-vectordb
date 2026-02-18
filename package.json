@@ -1,6 +1,6 @@
 {
   "name": "fusionpact",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The Agent-Native Vector Database — HNSW indexing, built-in RAG, MCP server, multi-tenancy, and agent memory architecture.",
   "main": "src/index.js",
   "types": "src/index.d.ts",
