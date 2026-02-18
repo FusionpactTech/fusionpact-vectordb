@@ -277,11 +277,119 @@ asyncTest('ingest and search', async () => {
               assert(bRecall.length === 1 && bRecall[0].content.includes('B'));
             }).then(() => {
 
+              // ─── TTL (Time To Live) ──────────────────────
+              console.log('\n⏱️  TTL (Time To Live)');
+
+              asyncTest('TTL memory with remember()', async () => {
+                const e = new FusionEngine({ ttlSweepInterval: 0 });
+                const mem = new AgentMemory(e, { embedder: 'mock' });
+                await mem.remember('a1', { content: 'short-term note', role: 'user', ttl: '100ms' });
+                // Should be visible immediately
+                const before = await mem.recall('a1', 'note');
+                assert(before.length === 1, 'Should find TTL memory before expiry');
+                // Wait for expiry
+                await new Promise(r => setTimeout(r, 150));
+                e._sweepExpired();
+                const after = await mem.recall('a1', 'note');
+                assert(after.length === 0, `Expected 0 after TTL expiry, got ${after.length}`);
+                e.close();
+              }).then(() => {
+
+                test('TTL parse formats', () => {
+                  const e = new FusionEngine({ ttlSweepInterval: 0 });
+                  assert(e._parseTTL('30s') === 30000);
+                  assert(e._parseTTL('5m') === 300000);
+                  assert(e._parseTTL('24h') === 86400000);
+                  assert(e._parseTTL('7d') === 604800000);
+                  assert(e._parseTTL(5000) === 5000);
+                  try { e._parseTTL('bad'); assert(false); } catch (err) { assert(err.message.includes('Invalid TTL')); }
+                  e.close();
+                });
+
+                test('expired docs filtered from query results', () => {
+                  const e = new FusionEngine({ ttlSweepInterval: 0 });
+                  e.createCollection('ttl-test', { dimension: 4, indexType: 'flat' });
+                  // Insert with already-expired TTL
+                  e.insert('ttl-test', [{
+                    id: 'expired', vector: vec.random(4),
+                    metadata: { _ttl_expires: Date.now() - 1000 },
+                  }]);
+                  e.insert('ttl-test', [{
+                    id: 'live', vector: vec.random(4), metadata: {},
+                  }]);
+                  const r = e.query('ttl-test', vec.random(4), { topK: 10 });
+                  assert(r.results.length === 1, `Expected 1 live result, got ${r.results.length}`);
+                  assert(r.results[0].id === 'live');
+                  e.close();
+                });
+
+                // ─── Audit Logger ───────────────────────────
+                console.log('\n📋 Audit Logger');
+
+                test('audit logs operations', () => {
+                  const { AuditLogger } = require('../src/core/audit');
+                  const audit = new AuditLogger();
+                  audit.log({ action: 'insert', actor: 'agent-1', collection: 'test', documentCount: 5 });
+                  audit.log({ action: 'query', actor: 'agent-1', collection: 'test', documentCount: 3 });
+                  audit.log({ action: 'delete', actor: 'agent-2', collection: 'test', documentCount: 1 });
+                  assert(audit.entries.length === 3);
+                });
+
+                test('audit query with filters', () => {
+                  const { AuditLogger } = require('../src/core/audit');
+                  const audit = new AuditLogger();
+                  audit.log({ action: 'insert', actor: 'a1', collection: 'c1' });
+                  audit.log({ action: 'query', actor: 'a2', collection: 'c1' });
+                  audit.log({ action: 'delete', actor: 'a1', collection: 'c2' });
+                  const byActor = audit.query({ actor: 'a1' });
+                  assert(byActor.length === 2, `Expected 2 entries for a1, got ${byActor.length}`);
+                  const byAction = audit.query({ action: 'query' });
+                  assert(byAction.length === 1);
+                });
+
+                test('audit stats', () => {
+                  const { AuditLogger } = require('../src/core/audit');
+                  const audit = new AuditLogger();
+                  audit.log({ action: 'insert', actor: 'a1' });
+                  audit.log({ action: 'insert', actor: 'a2' });
+                  audit.log({ action: 'query', actor: 'a1' });
+                  const stats = audit.getStats();
+                  assert(stats.totalEntries === 3);
+                  assert(stats.actionCounts.insert === 2);
+                  assert(stats.actorCounts.a1 === 2);
+                });
+
+                test('audit export as JSON', () => {
+                  const { AuditLogger } = require('../src/core/audit');
+                  const audit = new AuditLogger();
+                  audit.log({ action: 'insert', actor: 'a1' });
+                  const json = audit.export();
+                  const parsed = JSON.parse(json);
+                  assert(parsed.entryCount === 1);
+                  assert(parsed.entries[0].action === 'insert');
+                });
+
+                test('engine auto-logs to audit', () => {
+                  const e = new FusionEngine({ ttlSweepInterval: 0 });
+                  e.createCollection('aud', { dimension: 4 });
+                  e.insert('aud', [{ vector: vec.random(4) }]);
+                  e.query('aud', vec.random(4), { topK: 1 });
+                  e.dropCollection('aud');
+                  const entries = e.audit.entries;
+                  const actions = entries.map(e => e.action);
+                  assert(actions.includes('create_collection'), 'Missing create_collection audit');
+                  assert(actions.includes('insert'), 'Missing insert audit');
+                  assert(actions.includes('query'), 'Missing query audit');
+                  assert(actions.includes('drop_collection'), 'Missing drop_collection audit');
+                  e.close();
+                });
+
               // ─── Summary ──────────────────────────────────
               console.log(`\n${'─'.repeat(40)}`);
               console.log(`  ${passed} passed, ${failed} failed`);
               console.log(`${'─'.repeat(40)}\n`);
               process.exit(failed > 0 ? 1 : 0);
+              });
             });
           });
         });
@@ -289,3 +397,4 @@ asyncTest('ingest and search', async () => {
     });
   });
 });
+

@@ -32,6 +32,7 @@ const { FusionEngine, TenantClient, Collection } = require('./core/engine');
 const HNSWIndex = require('./core/hnsw');
 const vec = require('./core/vectors');
 const { RAGPipeline } = require('./core/rag');
+const { AuditLogger } = require('./core/audit');
 const { AgentMemory } = require('./memory/agent-memory');
 const { createEmbedder, MockEmbedder, OllamaEmbedder, OpenAIEmbedder } = require('./embeddings');
 const { MCPServer } = require('./mcp/server');
@@ -42,6 +43,7 @@ module.exports = {
   FusionEngine,
   HNSWIndex,
   Collection,
+  AuditLogger,
 
   // Multi-tenancy
   TenantClient,

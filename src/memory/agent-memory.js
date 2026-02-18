@@ -59,6 +59,7 @@ class AgentMemory {
    * @param {string} event.content — the text content to remember
    * @param {string} [event.role] — 'user', 'assistant', 'system', 'tool'
    * @param {string} [event.sessionId] — conversation/session identifier
+   * @param {string|number} [event.ttl] — time to live, e.g. '24h', '7d', '30m', or ms
    * @param {Object} [event.metadata] — additional metadata
    * @returns {Promise<{id: string}>}
    */
@@ -70,7 +71,7 @@ class AgentMemory {
     // Auto-resize collection if embedding dimension changed
     this._resizeIfNeeded(col, vector.length);
 
-    this.engine.insert(col, [{
+    const doc = {
       id,
       vector,
       metadata: {
@@ -82,7 +83,14 @@ class AgentMemory {
         type: 'episodic',
         ...(event.metadata || {}),
       },
-    }]);
+    };
+
+    // TTL support — short-term vs long-term memory
+    if (event.ttl) {
+      doc.ttl = event.ttl;
+    }
+
+    this.engine.insert(col, [doc]);
 
     return { id };
   }
@@ -129,6 +137,7 @@ class AgentMemory {
    * @param {Object} [options]
    * @param {string} [options.source='direct'] — where this knowledge came from
    * @param {string} [options.category] — knowledge category
+   * @param {string|number} [options.ttl] — time to live, e.g. '24h', '7d', or ms
    * @param {Object} [options.metadata]
    * @returns {Promise<{ids: string[], chunks: number}>}
    */
@@ -147,6 +156,7 @@ class AgentMemory {
     const docs = chunks.map((chunk, i) => ({
       id: generateId('sem'),
       vector: vectors[i],
+      ...(options.ttl ? { ttl: options.ttl } : {}),
       metadata: {
         _tenant_id: agentId,
         content: chunk.text,

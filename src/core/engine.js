@@ -36,9 +36,64 @@ class Collection {
 }
 
 class FusionEngine {
-  constructor() {
+  /**
+   * @param {Object} [options]
+   * @param {Object|boolean} [options.audit=true] — audit logger options, or false to disable
+   * @param {number} [options.ttlSweepInterval=60000] — how often to sweep expired TTL docs (ms)
+   */
+  constructor(options = {}) {
     /** @type {Map<string, Collection>} */
     this.collections = new Map();
+
+    // Audit logger
+    const { AuditLogger } = require('./audit');
+    const auditOpts = options.audit === false ? { enabled: false } : (options.audit || {});
+    this.audit = new AuditLogger(auditOpts);
+
+    // TTL sweep interval
+    this._ttlInterval = null;
+    const sweepMs = options.ttlSweepInterval || 60000;
+    if (sweepMs > 0) {
+      this._ttlInterval = setInterval(() => this._sweepExpired(), sweepMs);
+      if (this._ttlInterval.unref) this._ttlInterval.unref(); // don't keep process alive
+    }
+  }
+
+  /**
+   * Stop background TTL sweeper (for clean shutdown)
+   */
+  close() {
+    if (this._ttlInterval) {
+      clearInterval(this._ttlInterval);
+      this._ttlInterval = null;
+    }
+  }
+
+  /**
+   * Sweep all collections for expired TTL documents
+   * @returns {number} total documents removed
+   */
+  _sweepExpired() {
+    const now = Date.now();
+    let totalRemoved = 0;
+    for (const [colName, col] of this.collections) {
+      const expired = [];
+      for (const [id, doc] of col.documents) {
+        if (doc.metadata._ttl_expires && doc.metadata._ttl_expires <= now) {
+          expired.push(id);
+        }
+      }
+      if (expired.length > 0) {
+        this.delete(colName, expired);
+        totalRemoved += expired.length;
+        this.audit.log({
+          action: 'ttl_sweep', collection: colName,
+          documentCount: expired.length, actor: 'system',
+          details: { expiredIds: expired.slice(0, 20) },
+        });
+      }
+    }
+    return totalRemoved;
   }
 
   // ─── Collection Management ──────────────────────────────────
@@ -58,6 +113,10 @@ class FusionEngine {
     }
     const col = new Collection(name, config);
     this.collections.set(name, col);
+    this.audit.log({
+      action: 'create_collection', collection: name, actor: 'system',
+      details: { dimension: col.dimension, metric: col.metric, indexType: col.indexType },
+    });
     return this._colInfo(col);
   }
 
@@ -67,7 +126,11 @@ class FusionEngine {
    * @returns {boolean}
    */
   dropCollection(name) {
-    return this.collections.delete(name);
+    const result = this.collections.delete(name);
+    if (result) {
+      this.audit.log({ action: 'drop_collection', collection: name, actor: 'system' });
+    }
+    return result;
   }
 
   /**
@@ -120,7 +183,16 @@ class FusionEngine {
       }
 
       const id = doc.id || generateId();
-      const metadata = doc.metadata || {};
+      const metadata = { ...(doc.metadata || {}) };
+
+      // TTL support — convert human-readable TTL to expiration timestamp
+      if (doc.ttl || metadata._ttl) {
+        const ttlMs = this._parseTTL(doc.ttl || metadata._ttl);
+        metadata._ttl_expires = Date.now() + ttlMs;
+        metadata._ttl_duration = doc.ttl || metadata._ttl;
+        delete metadata._ttl;
+      }
+
       const entry = { id, vector: vec.toFloat64(doc.vector), metadata };
 
       c.documents.set(id, entry);
@@ -129,7 +201,27 @@ class FusionEngine {
       ids.push(id);
     }
 
+    this.audit.log({
+      action: 'insert', collection: collectionName,
+      documentCount: ids.length, actor: documents[0]?.metadata?._tenant_id || 'system',
+    });
+
     return ids;
+  }
+
+  /**
+   * Parse human-readable TTL string to milliseconds
+   * @param {string|number} ttl — e.g. '30s', '5m', '24h', '7d', or milliseconds
+   * @returns {number} milliseconds
+   */
+  _parseTTL(ttl) {
+    if (typeof ttl === 'number') return ttl;
+    const match = String(ttl).match(/^(\d+(?:\.\d+)?)\s*(s|m|h|d|ms)$/i);
+    if (!match) throw new Error(`Invalid TTL format: '${ttl}'. Use: 30s, 5m, 24h, 7d, or milliseconds`);
+    const val = parseFloat(match[1]);
+    const unit = match[2].toLowerCase();
+    const multipliers = { ms: 1, s: 1000, m: 60000, h: 3600000, d: 86400000 };
+    return Math.round(val * multipliers[unit]);
   }
 
   // ─── Delete ─────────────────────────────────────────────────
@@ -152,6 +244,14 @@ class FusionEngine {
         deleted++;
       }
     }
+
+    if (deleted > 0) {
+      this.audit.log({
+        action: 'delete', collection: collectionName,
+        documentCount: deleted, actor: 'system',
+      });
+    }
+
     return deleted;
   }
 
@@ -177,6 +277,7 @@ class FusionEngine {
     const filter = options.filter || null;
     const forceFlat = options.forceFlat || false;
     const includeVectors = options.includeVectors || false;
+    const now = Date.now();
 
     const t0 = performance.now();
     c.stats.queries++;
@@ -211,8 +312,20 @@ class FusionEngine {
     const elapsed = performance.now() - t0;
     c.stats.totalMs += elapsed;
 
+    // Filter out expired TTL documents from results
+    const liveResults = results.filter(r =>
+      !r.metadata._ttl_expires || r.metadata._ttl_expires > now
+    );
+
+    this.audit.log({
+      action: 'query', collection: collectionName,
+      documentCount: liveResults.length,
+      actor: filter?._tenant_id?.$eq || 'system',
+      durationMs: +elapsed.toFixed(3),
+    });
+
     return {
-      results: results.map(r => ({
+      results: liveResults.map(r => ({
         id: r.id,
         score: r.score,
         metadata: r.metadata,
