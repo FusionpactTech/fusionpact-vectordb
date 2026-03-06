@@ -1,54 +1,59 @@
 # Contributing to FusionPact
 
-We're thrilled you're interested in contributing to FusionPact! Here's how to get started.
+Thank you for your interest in contributing to FusionPact! We welcome contributions from the community.
 
-## Quick Setup
+## Getting Started
 
 ```bash
-git clone https://github.com/FusionPact/fusionpact-vectordb.git
+git clone https://github.com/FusionpactTech/fusionpact-vectordb.git
 cd fusionpact-vectordb
 npm install
-npm test          # Run test suite
-npm run demo      # Run quickstart demo
-npm run bench     # Run benchmarks
+npm test
+npx fusionpact demo
 ```
 
-## Ways to Contribute
+## How to Contribute
 
-### 🐛 Bug Reports
-Open an issue with: steps to reproduce, expected vs actual behavior, Node.js version.
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/your-feature`
+3. **Commit** your changes with clear messages
+4. **Test** your changes: `npm test`
+5. **Push** to your fork and submit a **Pull Request**
 
-### 🚀 Feature Requests
-Open an issue describing the use case and proposed API.
+## Code Standards
 
-### 📝 Pull Requests
+- All source files must include the FusionPact Technologies Inc. copyright header
+- Use JSDoc comments for all public APIs
+- Write tests for new features
+- Keep zero external dependencies in core modules
+- Follow existing code style
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make your changes
-4. Run tests: `npm test`
-5. Commit with descriptive message: `git commit -m "feat: add XYZ"`
-6. Push and open a PR
+## Copyright Headers
 
-### Good First Issues
+All new source files must include:
 
-Look for issues tagged `good first issue` — they're designed for newcomers!
+```javascript
+/**
+ * @fileoverview [Description]
+ * @module [module/name]
+ * @author FusionPact Technologies Inc.
+ * @license Apache-2.0
+ * @see https://github.com/FusionpactTech/fusionpact-vectordb
+ */
+```
 
-Priority areas:
-- **LangChain integration** (`src/integrations/langchain.js`)
-- **LlamaIndex integration** (`src/integrations/llamaindex.js`)
-- **SQLite persistence** (`src/persistence/sqlite.js`)
-- **Additional embedding providers**
-- **Documentation improvements**
-- **Test coverage expansion**
+## Reporting Issues
 
-## Code Style
+Use [GitHub Issues](https://github.com/FusionpactTech/fusionpact-vectordb/issues) with the provided templates.
 
-- Use `'use strict'` in all files
-- JSDoc comments for all public methods
-- Descriptive variable names
-- Error handling with meaningful messages
+## Code of Conduct
+
+Be respectful, constructive, and inclusive. We follow the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache 2.0 License.
+By contributing, you agree that your contributions will be licensed under the Apache 2.0 license.
+
+---
+
+Built by [FusionPact Technologies Inc.](https://fusionpact.com)

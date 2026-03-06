@@ -1,227 +1,101 @@
 #!/usr/bin/env node
-
 /**
  * FusionPact CLI
- *
- * Usage:
- *   fusionpact serve [--port 8080]         Start HTTP API server
- *   fusionpact mcp                          Start MCP server (stdio)
- *   fusionpact demo                         Run quickstart demo
- *   fusionpact bench [--count 10000]        Run HNSW benchmark
- *   fusionpact version                      Show version
+ * Built by FusionPact Technologies Inc. | Apache-2.0
  */
-
 'use strict';
+const fp = require('../src/index');
+const BANNER = `\n  ⚡ FusionPact v${fp.VERSION} — The Agent-Native Retrieval Engine\n  Built by FusionPact Technologies Inc. | https://fusionpact.com\n`;
+const HELP = `${BANNER}\nUsage: fusionpact <command> [options]\n\nCommands:\n  demo              Run interactive demo\n  serve [--port N]  Start HTTP + MCP server (default: 8080)\n  mcp               Start MCP server (stdio) for Claude Desktop\n  bench [--count N] Run HNSW benchmarks\n  help              Show this help\n\nEnvironment:\n  EMBEDDING_PROVIDER  'ollama' | 'openai' | 'mock' (default: mock)\n  LLM_PROVIDER        'ollama' | 'openai' | 'anthropic' (for tree reasoning)\n  OPENAI_API_KEY      OpenAI API key\n  ANTHROPIC_API_KEY   Anthropic API key\n`;
 
-const args = process.argv.slice(2);
-const command = args[0] || 'help';
+async function demo() {
+  console.log(BANNER);
+  const { engine, rag, memory, treeIndex } = fp.create({ embedder: process.env.EMBEDDING_PROVIDER || 'mock' });
+  const embedder = new fp.MockEmbedder({ dimensions: 64 });
 
-function getArg(name, defaultValue) {
-  const idx = args.indexOf(`--${name}`);
-  return idx >= 0 && args[idx + 1] ? args[idx + 1] : defaultValue;
-}
-
-async function main() {
-  switch (command) {
-    case 'serve': {
-      const port = parseInt(getArg('port', '8080'));
-      const { startServer } = require('./server');
-      startServer(port);
-      break;
-    }
-
-    case 'mcp': {
-      const { MCPServer } = require('../src/mcp/server');
-      const server = new MCPServer();
-      server.start();
-      break;
-    }
-
-    case 'demo': {
-      const { FusionEngine, RAGPipeline, AgentMemory, createEmbedder } = require('../src/index');
-
-      console.log('\n⚡ FusionPact — Quick Demo\n');
-
-      const engine = new FusionEngine();
-      const embedder = createEmbedder('mock');
-
-      // 1. HNSW Collection
-      console.log('1. Creating HNSW-indexed collection...');
-      engine.createCollection('demo', { dimension: 64, metric: 'cosine', indexType: 'hnsw' });
-
-      // 2. Insert vectors
-      console.log('2. Inserting 1,000 vectors...');
-      const { random } = require('../src/core/vectors');
-      const docs = Array.from({ length: 1000 }, (_, i) => ({
-        id: `doc-${i}`,
-        vector: random(64),
-        metadata: { category: ['safety', 'legal', 'product'][i % 3], priority: i % 4 },
-      }));
-      engine.insert('demo', docs);
-
-      // 3. Search
-      console.log('3. Searching...');
-      const result = engine.query('demo', random(64), { topK: 5 });
-      console.log(`   Found ${result.results.length} results in ${result.elapsed}ms [${result.method}]`);
-      result.results.forEach((r, i) => {
-        console.log(`   [${i + 1}] ${r.id} — score: ${r.score.toFixed(4)} — ${JSON.stringify(r.metadata)}`);
-      });
-
-      // 4. Multi-tenancy
-      console.log('\n4. Multi-tenancy demo...');
-      engine.createCollection('shared', { dimension: 64, metric: 'cosine' });
-      const tenantA = engine.tenant('shared', 'acme_corp');
-      const tenantB = engine.tenant('shared', 'globex_inc');
-      tenantA.insert(docs.slice(0, 50));
-      tenantB.insert(docs.slice(50, 100));
-      const tenantResult = tenantA.query(random(64), { topK: 3 });
-      console.log(`   Tenant A sees: ${tenantResult.results.length} results (isolated from B)`);
-
-      // 5. RAG
-      console.log('\n5. One-Click RAG...');
-      const rag = new RAGPipeline(engine, { embedder });
-      await rag.ingest(
-        'FusionPact is an open-source vector database built for AI agents. ' +
-        'It features HNSW indexing for fast approximate nearest neighbor search, ' +
-        'built-in multi-tenancy for data isolation, and an MCP server for ' +
-        'direct integration with Claude, GPT, and other AI agents. ' +
-        'The one-click RAG pipeline handles text chunking, embedding, and retrieval automatically.',
-        { source: 'about.txt' }
-      );
-      const ctx = await rag.buildContext('What is FusionPact?');
-      console.log(`   Chunks retrieved: ${ctx.chunks.length}`);
-      console.log(`   Prompt length: ${ctx.prompt.length} chars`);
-
-      // 6. Agent Memory
-      console.log('\n6. Agent Memory...');
-      const memory = new AgentMemory(engine, { embedder });
-      await memory.remember('agent-1', { content: 'User asked about safety protocols', role: 'user' });
-      await memory.remember('agent-1', { content: 'Provided OSHA compliance checklist', role: 'assistant' });
-      await memory.learn('agent-1', 'OSHA requires annual safety training for all workers in confined spaces.');
-      const recalled = await memory.recall('agent-1', 'safety training');
-      console.log(`   Recalled ${recalled.length} relevant memories`);
-
-      const stats = memory.getStats('agent-1');
-      console.log(`   Memory stats: ${JSON.stringify(stats)}`);
-
-      // Benchmark
-      console.log('\n7. HNSW Benchmark (100 queries)...');
-      const times = [];
-      for (let i = 0; i < 100; i++) {
-        const t0 = performance.now();
-        engine.query('demo', random(64), { topK: 10 });
-        times.push(performance.now() - t0);
-      }
-      times.sort((a, b) => a - b);
-      const avg = times.reduce((a, b) => a + b) / times.length;
-      console.log(`   Avg: ${avg.toFixed(3)}ms | P50: ${times[50].toFixed(3)}ms | P99: ${times[99].toFixed(3)}ms | QPS: ${Math.round(1000 / avg)}`);
-
-      console.log('\n✅ Demo complete! Try: fusionpact serve --port 8080\n');
-      break;
-    }
-
-    case 'bench': {
-      const count = parseInt(getArg('count', '10000'));
-      const dim = parseInt(getArg('dim', '128'));
-      const { FusionEngine } = require('../src/index');
-      const { random } = require('../src/core/vectors');
-
-      console.log(`\n⚡ FusionPact Benchmark — ${count.toLocaleString()} vectors, ${dim}D\n`);
-      const engine = new FusionEngine();
-
-      // Build
-      console.log('Building HNSW index...');
-      engine.createCollection('bench-hnsw', { dimension: dim, metric: 'cosine', indexType: 'hnsw' });
-      engine.createCollection('bench-flat', { dimension: dim, metric: 'cosine', indexType: 'flat' });
-
-      const t0 = performance.now();
-      const docs = Array.from({ length: count }, (_, i) => ({
-        id: `v-${i}`, vector: random(dim), metadata: { i },
-      }));
-      engine.insert('bench-hnsw', docs);
-      engine.insert('bench-flat', docs);
-      console.log(`Build time: ${((performance.now() - t0) / 1000).toFixed(2)}s`);
-
-      // Benchmark
-      function runBench(colName, n = 100) {
-        const times = [];
-        for (let i = 0; i < n; i++) {
-          const t = performance.now();
-          engine.query(colName, random(dim), { topK: 10 });
-          times.push(performance.now() - t);
-        }
-        times.sort((a, b) => a - b);
-        const avg = times.reduce((a, b) => a + b) / times.length;
-        return {
-          avg: avg.toFixed(3),
-          p50: times[Math.floor(n * 0.5)].toFixed(3),
-          p95: times[Math.floor(n * 0.95)].toFixed(3),
-          p99: times[Math.floor(n * 0.99)].toFixed(3),
-          qps: Math.round(1000 / avg),
-        };
-      }
-
-      console.log('\nRunning 100 queries each...\n');
-      const hnsw = runBench('bench-hnsw');
-      const flat = runBench('bench-flat');
-
-      console.log('┌─────────────┬───────────┬───────────┐');
-      console.log('│ Metric      │ HNSW      │ Flat      │');
-      console.log('├─────────────┼───────────┼───────────┤');
-      console.log(`│ Avg Latency │ ${hnsw.avg.padStart(7)}ms │ ${flat.avg.padStart(7)}ms │`);
-      console.log(`│ P50         │ ${hnsw.p50.padStart(7)}ms │ ${flat.p50.padStart(7)}ms │`);
-      console.log(`│ P95         │ ${hnsw.p95.padStart(7)}ms │ ${flat.p95.padStart(7)}ms │`);
-      console.log(`│ P99         │ ${hnsw.p99.padStart(7)}ms │ ${flat.p99.padStart(7)}ms │`);
-      console.log(`│ QPS         │ ${String(hnsw.qps).padStart(9)} │ ${String(flat.qps).padStart(9)} │`);
-      console.log('└─────────────┴───────────┴───────────┘');
-      console.log(`\nSpeedup: ${(parseFloat(flat.avg) / parseFloat(hnsw.avg)).toFixed(1)}x faster with HNSW\n`);
-      break;
-    }
-
-    case 'version':
-    case '--version':
-    case '-v':
-      console.log('fusionpact v0.1.0');
-      break;
-
-    case 'help':
-    case '--help':
-    case '-h':
-    default:
-      console.log(`
-  ⚡ FusionPact — The Agent-Native Vector Database
-
-  Usage: fusionpact <command> [options]
-
-  Commands:
-    serve [--port 8080]       Start HTTP API server
-    mcp                       Start MCP server (for Claude Desktop, Cursor)
-    demo                      Run interactive quickstart demo
-    bench [--count 10000]     Run HNSW vs Flat benchmark
-    version                   Show version
-
-  Environment:
-    EMBEDDING_PROVIDER        mock | ollama | openai (default: mock)
-    OLLAMA_MODEL              Ollama model name (default: nomic-embed-text)
-    OPENAI_API_KEY            OpenAI API key (required for openai provider)
-
-  MCP Integration (Claude Desktop):
-    Add to claude_desktop_config.json:
-    {
-      "mcpServers": {
-        "fusionpact": {
-          "command": "npx",
-          "args": ["fusionpact", "mcp"]
-        }
-      }
-    }
-
-  Docs: https://github.com/FusionPact/fusionpact-vectordb
-`);
+  console.log('━━━ 1. Vector Search ━━━');
+  engine.createCollection('demo', { dimensions: 64 });
+  const docs = [
+    { id: 'd1', text: 'OSHA requires chemical hazard communication including safety data sheets' },
+    { id: 'd2', text: 'Personal protective equipment must be provided at no cost to employees' },
+    { id: 'd3', text: 'Quarterly revenue increased by 15% driven by cloud services growth' },
+    { id: 'd4', text: 'Confined space entry requires atmospheric testing before access' },
+  ];
+  for (const d of docs) {
+    engine.insert('demo', [{ id: d.id, vector: await embedder.embed(d.text), metadata: { _content: d.text } }]);
   }
+  const qv = await embedder.embed('chemical safety requirements');
+  const res = engine.search('demo', qv, { topK: 3 });
+  res.forEach((r, i) => console.log(`  ${i+1}. [${r.score.toFixed(3)}] ${r.metadata._content?.substring(0, 70)}...`));
+
+  console.log('\n━━━ 2. RAG Pipeline ━━━');
+  const ir = await rag.ingest('All employees must complete safety orientation within 30 days. The orientation covers fire evacuation, chemical handling, and emergency contacts. All machinery must have proper guarding. Lockout/tagout procedures must be followed.', { source: 'manual.txt' });
+  console.log(`  Ingested ${ir.chunks} chunks`);
+  const ctx = await rag.buildContext('safety orientation requirements');
+  console.log(`  Context: ${ctx.chunks} chunks, ${ctx.prompt.length} chars`);
+
+  console.log('\n━━━ 3. Tree Index ━━━');
+  await treeIndex.indexDocument('report', '# Safety Report\n## Incidents\nTotal injuries: 47\n## Training\n98% completion rate', { format: 'markdown' });
+  const tr = await treeIndex.search('report', 'How many injuries?');
+  if (tr.length) console.log(`  Found: "${tr[0].content.substring(0, 60)}..." (score: ${tr[0].relevanceScore.toFixed(2)})`);
+
+  console.log('\n━━━ 4. Agent Memory ━━━');
+  await memory.remember('agent-1', { content: 'User prefers detailed safety reports', importance: 0.8 });
+  await memory.learn('agent-1', 'OSHA 1910.106 covers flammable liquid storage', { source: 'osha' });
+  const stats = memory.getStats('agent-1');
+  console.log(`  Memories: episodic=${stats.episodic}, semantic=${stats.semantic}, procedural=${stats.procedural}`);
+
+  console.log('\n━━━ 5. Multi-Tenancy ━━━');
+  engine.createCollection('shared', { dimensions: 64 });
+  const a = engine.tenant('shared', 'acme'), b = engine.tenant('shared', 'globex');
+  a.insert([{ id: 'a1', vector: await embedder.embed('Acme data'), metadata: {} }]);
+  b.insert([{ id: 'b1', vector: await embedder.embed('Globex data'), metadata: {} }]);
+  console.log(`  Acme sees: ${a.search(await embedder.embed('data'), { topK: 5 }).length} | Globex sees: ${b.search(await embedder.embed('data'), { topK: 5 }).length}`);
+
+  console.log('\n✅ Demo complete! Star us: https://github.com/FusionpactTech/fusionpact-vectordb');
 }
 
-main().catch(err => {
-  console.error('Error:', err.message);
-  process.exit(1);
-});
+async function serve(port) {
+  console.log(BANNER);
+  const inst = fp.create({ embedder: process.env.EMBEDDING_PROVIDER || 'mock', llmProvider: process.env.LLM_PROVIDER });
+  const mcp = new fp.MCPServer({ ...inst, transport: 'http', port });
+  const http = require('http');
+  http.createServer(async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+    const j = (c, d) => { res.writeHead(c, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(d)); };
+    try {
+      if (req.url === '/api/health') return j(200, { status: 'ok', version: fp.VERSION, engine: 'FusionPact Technologies Inc.' });
+      if (req.url === '/mcp/tools') return j(200, mcp.getToolManifest());
+      if (req.url === '/mcp/call' && req.method === 'POST') {
+        let body = ''; req.on('data', c => body += c);
+        return req.on('end', async () => { const { tool, args } = JSON.parse(body); j(200, await mcp.handleToolCall(tool, args)); });
+      }
+      j(404, { error: 'Not found' });
+    } catch (e) { j(400, { error: e.message }); }
+  }).listen(port, () => console.log(`🚀 Listening on http://localhost:${port}\n   GET  /api/health\n   GET  /mcp/tools\n   POST /mcp/call`));
+}
+
+async function bench(count) {
+  console.log(BANNER); console.log(`Benchmarking ${count} vectors (128D)...\n`);
+  const dim = 128, idx = new fp.HNSWIndex(dim, { M: 16, efConstruction: 200, efSearch: 50 });
+  let t = performance.now();
+  for (let i = 0; i < count; i++) { const v = new Float32Array(dim); for (let j = 0; j < dim; j++) v[j] = Math.random()*2-1; idx.insert(`v${i}`, v); }
+  const iT = performance.now() - t; const qN = 1000; t = performance.now();
+  for (let i = 0; i < qN; i++) { const q = new Float32Array(dim); for (let j = 0; j < dim; j++) q[j] = Math.random()*2-1; idx.search(q, { topK: 10 }); }
+  const sT = performance.now() - t;
+  console.log(`Insert: ${iT.toFixed(0)}ms (${(iT/count).toFixed(3)}ms/vec)\nSearch: ${sT.toFixed(0)}ms (${(sT/qN).toFixed(3)}ms/query)\nQPS:    ~${Math.round(qN/(sT/1000))}\nHeap:   ${(process.memoryUsage().heapUsed/1024/1024).toFixed(1)}MB`);
+}
+
+const args = process.argv.slice(2), cmd = args[0] || 'help';
+(async () => {
+  try {
+    if (cmd === 'demo') await demo();
+    else if (cmd === 'serve') await serve(parseInt(args[args.indexOf('--port')+1]) || 8080);
+    else if (cmd === 'mcp') { const inst = fp.create({ embedder: 'mock' }); const m = new fp.MCPServer({ ...inst, transport: 'stdio' }); await m.start(); }
+    else if (cmd === 'bench') await bench(parseInt(args[args.indexOf('--count')+1]) || 5000);
+    else console.log(HELP);
+  } catch (e) { console.error('Error:', e.message); process.exit(1); }
+})();

@@ -1,71 +1,180 @@
 /**
- * FusionPact — The Agent-Native Vector Database
- *
- * @example
- *   const { FusionEngine, RAGPipeline, AgentMemory, createEmbedder } = require('fusionpact');
- *
- *   // Create engine
- *   const engine = new FusionEngine();
- *
- *   // Create a collection with HNSW indexing
- *   engine.createCollection('my-docs', { dimension: 768, metric: 'cosine' });
- *
- *   // One-click RAG
- *   const rag = new RAGPipeline(engine, { embedder: 'ollama' });
- *   await rag.ingest('Your document text here...', { source: 'doc.pdf' });
- *   const context = await rag.buildContext('What is this about?');
- *
- *   // Agent memory
- *   const memory = new AgentMemory(engine, { embedder: 'ollama' });
- *   await memory.remember('agent-1', { content: 'User prefers dark mode', role: 'system' });
- *   const memories = await memory.recall('agent-1', 'user preferences');
- *
- *   // Multi-tenancy
- *   const tenant = engine.tenant('my-docs', 'acme_corp');
- *   tenant.insert([{ vector: [...], metadata: { ... } }]);  // auto-tagged
- *   tenant.query(queryVec, { topK: 10 });                    // auto-filtered
+ * @fileoverview FusionPact — The Agent-Native Retrieval Engine
+ * 
+ * Hybrid Vector + Reasoning + Memory for AI Agents.
+ * 
+ * ─────────────────────────────────────────────────────────────
+ *  FusionPact is built and maintained by FusionPact Technologies Inc.
+ *  https://fusionpact.com | https://github.com/FusionpactTech
+ * 
+ *  Licensed under Apache 2.0
+ *  Copyright (c) 2024-2026 FusionPact Technologies Inc.
+ * ─────────────────────────────────────────────────────────────
+ * 
+ * @module fusionpact
+ * @version 2.0.0
+ * @license Apache-2.0
+ * @see https://github.com/FusionpactTech/fusionpact-vectordb
  */
 
 'use strict';
 
-const { FusionEngine, TenantClient, Collection } = require('./core/engine');
-const HNSWIndex = require('./core/hnsw');
-const vec = require('./core/vectors');
-const { RAGPipeline } = require('./core/rag');
-const { AuditLogger } = require('./core/audit');
-const { AgentMemory } = require('./memory/agent-memory');
-const { createEmbedder, MockEmbedder, OllamaEmbedder, OpenAIEmbedder } = require('./embeddings');
-const { MCPServer } = require('./mcp/server');
-const { chunkText, generateId, Timer } = require('./utils');
+// Core
+const { FusionEngine } = require('./core/FusionEngine');
+const { HNSWIndex } = require('./core/HNSWIndex');
+
+// Index
+const { TreeIndex } = require('./index/TreeIndex');
+
+// Retrieval
+const { HybridRetriever } = require('./retrieval/HybridRetriever');
+
+// Memory
+const { AgentMemory } = require('./memory/AgentMemory');
+
+// RAG
+const { RAGPipeline } = require('./rag/RAGPipeline');
+
+// Embedders
+const { OllamaEmbedder, OpenAIEmbedder, MockEmbedder, LLMProvider } = require('./embedders/providers');
+
+// MCP
+const { MCPServer } = require('./mcp/MCPServer');
+
+// Orchestration
+const { AgentOrchestrator } = require('./orchestration/AgentOrchestrator');
+
+// ─── Convenience Factory ──────────────────────────────────
+
+/**
+ * Create a fully-configured FusionPact instance with sensible defaults.
+ * 
+ * @param {Object} [config={}]
+ * @param {string} [config.embedder='mock'] - Embedder: 'ollama', 'openai', or 'mock'
+ * @param {string} [config.llmProvider] - LLM provider for tree reasoning: 'ollama', 'openai', 'anthropic'
+ * @param {boolean} [config.enableHybrid=true] - Enable hybrid retrieval
+ * @param {boolean} [config.enableMemory=true] - Enable agent memory
+ * @param {boolean} [config.enableMCP=false] - Start MCP server
+ * @param {Object} [config.engineConfig={}] - FusionEngine config
+ * @returns {{ engine, memory, rag, treeIndex, retriever, orchestrator, mcp }}
+ * 
+ * @example
+ * // Quickstart — zero config
+ * const fp = require('fusionpact').create();
+ * await fp.rag.ingest('Your document text...', { source: 'doc.pdf' });
+ * const ctx = await fp.rag.buildContext('What safety protocols exist?');
+ * 
+ * @example
+ * // Full setup with Ollama
+ * const fp = require('fusionpact').create({
+ *   embedder: 'ollama',
+ *   llmProvider: 'ollama',
+ *   enableHybrid: true,
+ *   enableMemory: true
+ * });
+ */
+function create(config = {}) {
+  // Engine
+  const engine = new FusionEngine(config.engineConfig || {});
+
+  // Embedder
+  let embedder;
+  switch (config.embedder) {
+    case 'ollama':
+      embedder = new OllamaEmbedder(config.ollamaConfig || {});
+      break;
+    case 'openai':
+      embedder = new OpenAIEmbedder(config.openaiConfig || {});
+      break;
+    default:
+      embedder = new MockEmbedder(config.mockConfig || {});
+  }
+
+  // LLM Provider (for tree reasoning)
+  let llmProvider = null;
+  if (config.llmProvider) {
+    llmProvider = new LLMProvider({
+      provider: config.llmProvider,
+      ...config.llmConfig
+    });
+  }
+
+  // Tree Index
+  const treeIndex = new TreeIndex({ llmProvider });
+
+  // RAG Pipeline
+  const rag = new RAGPipeline(engine, {
+    embedder,
+    collection: config.collection || 'default',
+    enableTreeIndex: !!llmProvider,
+    treeIndex
+  });
+
+  // Hybrid Retriever
+  let retriever = null;
+  if (config.enableHybrid !== false) {
+    retriever = new HybridRetriever({
+      engine,
+      treeIndex,
+      embedder,
+      weights: config.weights || { vector: 0.4, tree: 0.4, keyword: 0.2 }
+    });
+    rag.hybridRetriever = retriever;
+  }
+
+  // Agent Memory
+  let memory = null;
+  if (config.enableMemory !== false) {
+    memory = new AgentMemory(engine, { embedder });
+  }
+
+  // Orchestrator
+  let orchestrator = null;
+  if (memory) {
+    orchestrator = new AgentOrchestrator({ engine, memory, retriever });
+  }
+
+  // MCP Server
+  let mcp = null;
+  if (config.enableMCP) {
+    mcp = new MCPServer({ engine, memory, rag, retriever, ...config.mcpConfig });
+  }
+
+  return { engine, embedder, treeIndex, rag, retriever, memory, orchestrator, mcp };
+}
 
 module.exports = {
+  // Factory
+  create,
+
   // Core
   FusionEngine,
   HNSWIndex,
-  Collection,
-  AuditLogger,
 
-  // Multi-tenancy
-  TenantClient,
+  // Index
+  TreeIndex,
+
+  // Retrieval
+  HybridRetriever,
+
+  // Memory
+  AgentMemory,
 
   // RAG
   RAGPipeline,
 
-  // Agent Memory
-  AgentMemory,
-
-  // Embeddings
-  createEmbedder,
-  MockEmbedder,
+  // Embedders
   OllamaEmbedder,
   OpenAIEmbedder,
+  MockEmbedder,
+  LLMProvider,
 
   // MCP
   MCPServer,
 
-  // Utilities
-  vec,
-  chunkText,
-  generateId,
-  Timer,
+  // Orchestration
+  AgentOrchestrator,
+
+  // Version
+  VERSION: '2.0.0'
 };

@@ -1,59 +1,45 @@
 {
   "name": "fusionpact",
-  "version": "0.1.2",
-  "description": "The Agent-Native Vector Database — HNSW indexing, built-in RAG, MCP server, multi-tenancy, and agent memory architecture.",
+  "version": "2.0.0",
+  "description": "The Agent-Native Retrieval Engine — Hybrid Vector + Reasoning + Memory for AI Agents. HNSW indexing, tree-based reasoning retrieval, built-in RAG, MCP server, multi-agent orchestration, and agent memory architecture.",
   "main": "src/index.js",
-  "types": "src/index.d.ts",
   "bin": {
     "fusionpact": "./bin/cli.js"
   },
-  "exports": {
-    ".": "./src/index.js",
-    "./mcp": "./src/mcp/server.js",
-    "./memory": "./src/memory/agent-memory.js",
-    "./embeddings": "./src/embeddings/index.js"
-  },
   "scripts": {
     "start": "node bin/cli.js serve",
-    "mcp": "node src/mcp/server.js",
-    "test": "node test/run.js",
-    "bench": "node test/benchmark.js",
-    "demo": "node examples/quickstart.js"
+    "demo": "node bin/cli.js demo",
+    "mcp": "node bin/cli.js mcp",
+    "bench": "node bin/cli.js bench",
+    "test": "node --test test/**/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage test/**/*.test.js",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
-    "vector-database",
-    "hnsw",
-    "mcp",
-    "model-context-protocol",
-    "ai-agents",
-    "rag",
-    "retrieval-augmented-generation",
-    "embeddings",
-    "semantic-search",
-    "multi-tenancy",
-    "agent-memory",
-    "langchain",
-    "llamaindex",
-    "crewai",
-    "fusionpact"
+    "vector-database", "retrieval-engine", "hybrid-retrieval", "reasoning-rag",
+    "vectorless-rag", "tree-index", "hnsw", "agent-memory", "mcp-server",
+    "multi-agent", "rag", "ai-agents", "semantic-search", "embeddings",
+    "multi-tenancy", "langchain", "llamaindex", "crewai", "model-context-protocol"
   ],
-  "author": "FusionPact Technologies <engineering@fusionpact.com>",
+  "author": {
+    "name": "FusionPact Technologies Inc.",
+    "url": "https://fusionpact.com"
+  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/FusionPact/fusionpact-vectordb"
+    "url": "https://github.com/FusionpactTech/fusionpact-vectordb.git"
   },
-  "homepage": "https://fusionpact.dev",
+  "homepage": "https://fusionpact.com/vectordb",
   "bugs": {
-    "url": "https://github.com/FusionPact/fusionpact-vectordb/issues"
+    "url": "https://github.com/FusionpactTech/fusionpact-vectordb/issues"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "files": [
-    "src/",
-    "bin/",
-    "LICENSE",
-    "README.md"
-  ]
+    "src/", "bin/", "LICENSE", "NOTICE", "README.md", "ATTRIBUTION.md"
+  ],
+  "dependencies": {},
+  "devDependencies": {}
 }

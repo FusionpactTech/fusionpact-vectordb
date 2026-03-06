@@ -1,35 +1,56 @@
-<div align="center">
-
 # ⚡ FusionPact
 
-### The Agent-Native Vector Database
+### The Agent-Native Retrieval Engine
 
-**HNSW Indexing · Built-in RAG · MCP Server · Multi-Tenancy · Agent Memory**
-
-Add AI memory to any agent in 30 seconds.
+**Hybrid Vector + Reasoning + Memory for AI Agents**
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org)
 [![npm](https://img.shields.io/npm/v/fusionpact.svg)](https://www.npmjs.com/package/fusionpact)
 
-[Quickstart](#-quickstart) · [MCP Integration](#-mcp-server-for-ai-agents) · [Documentation](#-documentation) · [Benchmarks](#-performance) · [Contributing](#-contributing)
+> **Similarity ≠ Relevance.** FusionPact is the first retrieval engine that combines HNSW vector search, reasoning-based tree retrieval, and agent memory in a single platform — purpose-built for AI agents and multi-agent systems.
 
-</div>
+[Quickstart](#-quickstart) · [Hybrid Retrieval](#-hybrid-retrieval-engine) · [Agent Memory](#-agent-memory) · [Multi-Agent](#-multi-agent-orchestration) · [MCP Server](#-mcp-server) · [Tree Index](#-tree-index) · [RAG Pipeline](#-rag-pipeline) · [API Reference](#-api-reference) · [Benchmarks](#-benchmarks) · [Contributing](#-contributing)
 
 ---
 
 ## Why FusionPact?
 
-Every vector database today is a **generic data store**. You bolt on RAG pipelines, build custom agent memory, and write MCP glue code yourself.
+Traditional vector databases retrieve what's **similar**. But similar ≠ relevant. Ask a vector DB for "Q3 2024 revenue" and you might get Q2 or Q4 data — semantically similar, but the **wrong answer**.
 
-FusionPact is different. It's the **first vector database built specifically for AI agents**:
+FusionPact solves this by combining **three retrieval paradigms**:
 
-- 🔌 **MCP Server built-in** — Claude, Cursor, and any MCP client can use it as memory *instantly*
-- 🧠 **Agent Memory Architecture** — Episodic, semantic, and procedural memory as first-class primitives
-- 📄 **One-Click RAG** — Text → chunks → embeddings → searchable context in one call
-- 🔒 **Multi-Tenancy** — Zero-trust soft-isolation with automatic tenant filtering
-- ⚡ **HNSW Indexing** — O(log N) approximate nearest neighbor search
-- 🆓 **Zero-Cost** — Local-first, runs on your machine, no API keys required
+| Strategy | How It Works | Best For |
+|---|---|---|
+| **Vector Search** (HNSW) | Embedding similarity, O(log N) | Broad search across large collections |
+| **Tree Reasoning** | LLM navigates document structure | Precise retrieval in structured documents |
+| **Keyword Search** (BM25) | Term frequency matching | Exact match requirements |
+
+Plus purpose-built **agent memory**, **multi-agent orchestration**, and **MCP server** — all zero-dependency, local-first, and free.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│             FusionPact Retrieval Engine                   │
+│                                                          │
+│  ┌────────────┐  ┌─────────────┐  ┌────────────────┐   │
+│  │ Vector     │  │ Tree        │  │ Keyword        │   │
+│  │ (HNSW)     │  │ (Reasoning) │  │ (BM25)         │   │
+│  └─────┬──────┘  └──────┬──────┘  └───────┬────────┘   │
+│        └────────────┬────┴─────────────────┘            │
+│                     ▼                                    │
+│           Reciprocal Rank Fusion                         │
+│                     ▼                                    │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │        Agent Memory (Multi-Agent)                │   │
+│  │  Episodic │ Semantic │ Procedural │ Shared       │   │
+│  └──────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │        MCP Server (Claude, Cursor, etc.)         │   │
+│  └──────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## ⚡ Quickstart
 
@@ -40,32 +61,258 @@ npm install fusionpact
 # Run the demo
 npx fusionpact demo
 
-# Start HTTP API server
+# Start HTTP + MCP server
 npx fusionpact serve --port 8080
 
-# Start MCP server (for Claude Desktop)
+# Start MCP server for Claude Desktop
 npx fusionpact mcp
 ```
 
 ### 10 Lines of Code
 
 ```javascript
-const { FusionEngine, RAGPipeline } = require('fusionpact');
+const { create } = require('fusionpact');
 
-const engine = new FusionEngine();
-const rag = new RAGPipeline(engine, { embedder: 'ollama' });
+const fp = create({ embedder: 'ollama' }); // or 'mock' for zero-config
 
-// Ingest any text — auto-chunks, embeds, and indexes
-await rag.ingest('Your document text here...', { source: 'doc.pdf' });
+// Ingest a document — auto-chunks, embeds, indexes
+await fp.rag.ingest('Your document text here...', { source: 'doc.pdf' });
 
-// Search with natural language
-const context = await rag.buildContext('What safety protocols exist?');
+// Hybrid search — vector + reasoning + keyword, fused automatically
+const results = await fp.retriever.retrieve('What safety protocols exist?', {
+  collection: 'default',
+  strategy: 'hybrid'
+});
+
+// Or build LLM-ready context directly
+const context = await fp.rag.buildContext('What safety protocols exist?');
 console.log(context.prompt); // Ready to paste into any LLM
 ```
 
-## 🔌 MCP Server for AI Agents
+---
 
-FusionPact ships as an MCP (Model Context Protocol) server. This means **any AI agent can use it as persistent memory** — no custom integration code needed.
+## 🔀 Hybrid Retrieval Engine
+
+The core differentiator: a single API that intelligently routes queries through multiple retrieval strategies and fuses results using Reciprocal Rank Fusion.
+
+```javascript
+const { create } = require('fusionpact');
+
+const fp = create({
+  embedder: 'ollama',        // Local, free, private
+  llmProvider: 'ollama',     // For tree reasoning
+  enableHybrid: true
+});
+
+// Index a structured document with tree structure
+await fp.treeIndex.indexDocument('annual-report', reportText, {
+  format: 'markdown'
+});
+
+// Hybrid retrieval — automatically uses the best strategy
+const results = await fp.retriever.retrieve(
+  'What were the total deferred tax assets in Q3?',
+  {
+    collection: 'documents',       // Vector search here
+    docId: 'annual-report',        // Tree reasoning here
+    topK: 5,
+    strategy: 'hybrid'            // Fuse all strategies
+  }
+);
+
+// Each result includes:
+// - score: Fused relevance score
+// - content: Retrieved text
+// - sources: Which strategies contributed { vector: 0.8, tree: 0.9, keyword: 0.3 }
+// - citation: "Section 3 > Financial Data > Table 3.2.1"
+// - reasoning: Full tree traversal reasoning trace
+```
+
+### Strategy Weights
+
+```javascript
+const retriever = new HybridRetriever({
+  engine, treeIndex, embedder,
+  weights: {
+    vector: 0.4,   // 40% weight to vector similarity
+    tree: 0.4,     // 40% weight to reasoning-based retrieval
+    keyword: 0.2   // 20% weight to keyword matching
+  }
+});
+```
+
+### Adaptive Learning
+
+FusionPact learns which retrieval strategy works best for different query patterns:
+
+```javascript
+// Record feedback on result quality
+retriever.recordFeedback('financial query', 'tree', 0.95);
+retriever.recordFeedback('general search', 'vector', 0.85);
+
+// Get recommended weights for a new query
+const weights = retriever.getAdaptiveWeights('new financial query');
+// → { vector: 0.25, tree: 0.6, keyword: 0.15 }
+```
+
+---
+
+## 🌲 Tree Index
+
+Reasoning-based retrieval for structured documents. Builds a hierarchical tree (like an intelligent table of contents) and uses LLM reasoning to navigate to the most relevant sections.
+
+```javascript
+const { TreeIndex, LLMProvider } = require('fusionpact');
+
+const llm = new LLMProvider({ provider: 'ollama' }); // Free, local
+const tree = new TreeIndex({ llmProvider: llm });
+
+// Index a document
+await tree.indexDocument('sec-filing', filingText, {
+  format: 'markdown',
+  metadata: { source: '10-K', year: 2024 }
+});
+
+// Reasoning-based search
+const results = await tree.search('sec-filing', 'Total deferred tax assets', {
+  maxResults: 3,
+  includeReasoning: true
+});
+
+// results[0]:
+// {
+//   content: "Table 5.2: Deferred Tax Assets...",
+//   relevanceScore: 0.95,
+//   citation: "Financial Statements > Note 5 > Tax Assets > Table 5.2",
+//   reasoningPath: [
+//     { title: "Financial Statements", reasoning: "Deferred tax assets are in financial notes", action: "explore" },
+//     { title: "Note 5: Income Taxes", reasoning: "This note covers tax-related assets", action: "explore" },
+//     { title: "Table 5.2", reasoning: "Contains the deferred tax asset breakdown", action: "retrieve" }
+//   ]
+// }
+```
+
+### Works Without LLM Too
+
+If no LLM provider is configured, TreeIndex falls back to keyword-based tree traversal — still useful, just without the reasoning path:
+
+```javascript
+const tree = new TreeIndex(); // No LLM — keyword fallback
+await tree.indexDocument('doc', text, { format: 'markdown' });
+const results = await tree.search('doc', 'safety protocols');
+```
+
+---
+
+## 🧠 Agent Memory
+
+Purpose-built memory system for AI agents with four memory types:
+
+| Memory Type | What It Stores | Example |
+|---|---|---|
+| **Episodic** | Events, conversations, observations | "User asked about Lab B chemical storage" |
+| **Semantic** | Facts, domain knowledge, learned info | "OSHA 1910.106 covers flammable liquids" |
+| **Procedural** | Tool schemas, API specs, workflows | search_incidents tool definition |
+| **Shared** | Cross-agent knowledge pool | "Customer ACME prefers ISO 14001" |
+
+```javascript
+const { create } = require('fusionpact');
+const fp = create({ embedder: 'ollama', enableMemory: true });
+
+// Episodic — remember what happened
+await fp.memory.remember('agent-1', {
+  content: 'User prefers dark mode and concise answers',
+  role: 'system',
+  importance: 0.8
+});
+
+// Semantic — learn knowledge
+await fp.memory.learn('agent-1',
+  'OSHA 29 CFR 1910 covers general industry safety standards.',
+  { source: 'regulations', category: 'compliance' }
+);
+
+// Procedural — register tools
+await fp.memory.registerTool('agent-1', {
+  name: 'search_incidents',
+  description: 'Search EHS incident reports by category and severity',
+  schema: { type: 'object', properties: { severity: { type: 'string' } } }
+});
+
+// Recall — cross-memory search
+const memories = await fp.memory.recall('agent-1', 'safety compliance');
+// → { episodic: [...], semantic: [...], procedural: [...], shared: [...] }
+
+// Conversation memory
+fp.memory.addMessage('agent-1', 'thread-001', { role: 'user', content: 'What are the PPE requirements?' });
+fp.memory.addMessage('agent-1', 'thread-001', { role: 'assistant', content: 'PPE requirements include...' });
+const history = fp.memory.getConversation('agent-1', 'thread-001');
+
+// GDPR-friendly forget
+fp.memory.forget('agent-1', { type: 'all' });
+```
+
+---
+
+## 🤖 Multi-Agent Orchestration
+
+Coordinate multiple AI agents with isolated memory, shared knowledge, and message routing:
+
+```javascript
+const { create, AgentOrchestrator } = require('fusionpact');
+
+const fp = create({ embedder: 'ollama', enableMemory: true });
+const orchestrator = new AgentOrchestrator({
+  engine: fp.engine,
+  memory: fp.memory,
+  retriever: fp.retriever
+});
+
+// Register agents
+orchestrator.registerAgent({
+  agentId: 'researcher',
+  name: 'Research Agent',
+  role: 'Find and analyze information',
+  capabilities: ['search', 'analysis', 'summarization']
+});
+
+orchestrator.registerAgent({
+  agentId: 'writer',
+  name: 'Writing Agent',
+  role: 'Generate reports and documentation',
+  capabilities: ['writing', 'formatting', 'editing']
+});
+
+// Agent-to-agent communication
+await orchestrator.send({
+  from: 'researcher',
+  to: 'writer',
+  type: 'result',
+  payload: { findings: 'Safety incidents decreased 12% YoY...' }
+});
+
+// Capability-based task delegation
+await orchestrator.delegate('coordinator', 'Write a safety summary report', {
+  requiredCapabilities: ['writing', 'formatting']
+});
+// → Automatically routes to 'writer' agent
+
+// Collaborative retrieval across all agents
+const results = await orchestrator.collaborativeRecall('safety compliance');
+// → Returns memories from all agents, plus shared knowledge
+
+// Message handling
+orchestrator.onMessage('writer', async (msg) => {
+  console.log(`Writer received: ${msg.type} from ${msg.from}`);
+  // Process task...
+});
+```
+
+---
+
+## 🔌 MCP Server
+
+FusionPact ships as an MCP (Model Context Protocol) server. Any AI agent (Claude, Cursor, Windsurf) can use it as persistent memory — no custom integration needed.
 
 ### Claude Desktop Setup
 
@@ -85,207 +332,218 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-Now Claude can:
-- **Store memories** across conversations
-- **Ingest documents** and search them semantically
-- **Maintain context** about your preferences, projects, and history
-
 ### Available MCP Tools
 
 | Tool | Description |
-|------|-------------|
-| `fusionpact_create_collection` | Create a new HNSW-indexed vector collection |
-| `fusionpact_insert` | Insert text documents (auto-embedded) |
-| `fusionpact_search` | Semantic search with metadata filtering |
-| `fusionpact_rag_ingest` | One-click RAG: chunk + embed + index text |
-| `fusionpact_rag_query` | Build LLM-ready context from documents |
-| `fusionpact_memory_remember` | Store episodic memory (events, conversations) |
-| `fusionpact_memory_recall` | Recall relevant memories for a context |
-| `fusionpact_memory_learn` | Add knowledge to semantic memory |
+|---|---|
+| `fusionpact_create_collection` | Create HNSW-indexed vector collection |
+| `fusionpact_search` | Semantic vector search |
+| `fusionpact_hybrid_search` | Hybrid retrieval (vector + tree + keyword) |
+| `fusionpact_rag_ingest` | One-click RAG ingestion |
+| `fusionpact_rag_query` | Build LLM-ready context |
+| `fusionpact_memory_remember` | Store episodic memory |
+| `fusionpact_memory_recall` | Recall relevant memories |
+| `fusionpact_memory_learn` | Add semantic knowledge |
+| `fusionpact_memory_share` | Share cross-agent knowledge |
+| `fusionpact_memory_forget` | GDPR-style memory erasure |
+| `fusionpact_memory_conversation` | Manage conversation threads |
 
-## 🧠 Agent Memory Architecture
+---
 
-Unlike generic vector stores, FusionPact has **purpose-built memory types** for AI agents:
+## 📄 RAG Pipeline
 
-```
-┌─────────────────────────────────────────────────┐
-│           FusionPact Agent Memory                │
-│                                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
-│  │ Episodic │  │ Semantic │  │Procedural│      │
-│  │(what     │  │(what the │  │(what the │      │
-│  │happened) │  │agent     │  │agent can │      │
-│  │          │  │knows)    │  │do)       │      │
-│  └──────────┘  └──────────┘  └──────────┘      │
-│  Conversations   Documents     Tool schemas      │
-│  Events          Knowledge     API specs          │
-│  User prefs      Facts         Workflows          │
-└─────────────────────────────────────────────────┘
-```
+End-to-end RAG in one call:
 
 ```javascript
-const { FusionEngine, AgentMemory } = require('fusionpact');
+const fp = require('fusionpact').create({ embedder: 'ollama' });
 
-const engine = new FusionEngine();
-const memory = new AgentMemory(engine, { embedder: 'ollama' });
-
-// Episodic — remember what happened
-await memory.remember('agent-1', {
-  content: 'User prefers dark mode and concise answers',
-  role: 'system',
+// Ingest — auto-chunks, embeds, indexes
+await fp.rag.ingest(documentText, {
+  source: 'safety-manual.pdf',
+  title: 'Safety Manual 2024'
 });
 
-// Semantic — learn knowledge
-await memory.learn('agent-1',
-  'OSHA 29 CFR 1910 covers general industry safety standards.',
-  { source: 'regulations', category: 'compliance' }
-);
-
-// Procedural — register tools
-await memory.registerTool('agent-1', {
-  name: 'search_incidents',
-  description: 'Search EHS incident reports by category and severity',
-  schema: { /* JSON Schema */ },
+// Build context for any LLM
+const ctx = await fp.rag.buildContext('What PPE is required?', {
+  topK: 5,
+  maxTokens: 4000,
+  strategy: 'hybrid'  // Uses HybridRetriever if available
 });
 
-// Recall — find relevant memories
-const memories = await memory.recall('agent-1', 'safety compliance requirements');
-
-// Cross-memory search
-const all = await memory.searchAll('agent-1', 'safety training');
-// → { episodic: [...], semantic: [...], procedural: [...] }
-
-// GDPR-friendly forget
-memory.forget('agent-1', { type: 'all' });
+// ctx.prompt → Ready for any LLM
+// ctx.sources → Source citations
+// ctx.chunks → Number of chunks used
 ```
+
+### Chunking Strategies
+
+```javascript
+const rag = new RAGPipeline(engine, {
+  chunkStrategy: 'recursive',  // 'recursive' | 'sentence' | 'paragraph'
+  chunkSize: 512,
+  chunkOverlap: 50
+});
+```
+
+---
 
 ## 🔒 Multi-Tenancy
 
-Automatic soft-isolation — zero trust, zero leakage:
+Zero-trust soft-isolation — tenants can never see each other's data:
 
 ```javascript
 const tenantA = engine.tenant('shared-collection', 'acme_corp');
 const tenantB = engine.tenant('shared-collection', 'globex_inc');
 
-// Inserts are auto-tagged with _tenant_id
-tenantA.insert([{ vector: [...], metadata: { doc: 'Acme Safety Plan' } }]);
+tenantA.insert([{ id: 'doc-1', vector: [...], metadata: { doc: 'Acme Plan' } }]);
 
-// Queries are auto-filtered — Tenant A CANNOT see Tenant B's data
-tenantA.query(queryVec, { topK: 10 });
-// → Only returns Acme documents. Always. No exceptions.
+// Tenant A queries — only sees Acme data. Always.
+const results = tenantA.search(queryVec, { topK: 10 });
 ```
 
-## 📊 Performance
-
-### HNSW vs Brute Force (1,000 vectors, 128D)
-
-| Metric | HNSW | Flat (Brute Force) |
-|--------|------|-------------------|
-| Avg Latency | ~0.3ms | ~0.5ms |
-| P99 Latency | ~0.5ms | ~1.2ms |
-| QPS | ~3,000 | ~2,000 |
-
-Run your own benchmark:
-
-```bash
-npx fusionpact bench --count 10000 --dim 128
-```
-
-## 🔧 HTTP API
-
-```bash
-npx fusionpact serve --port 8080
-```
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/collections` | GET, POST | List/create collections |
-| `/api/insert` | POST | Insert documents (auto-embed text) |
-| `/api/search` | POST | Semantic search |
-| `/api/rag/ingest` | POST | One-click RAG ingestion |
-| `/api/rag/search` | POST | RAG chunk retrieval |
-| `/api/rag/context` | POST | Build LLM prompt with context |
-| `/api/memory/*` | POST | Agent memory operations |
-
-## 🆚 Comparison
-
-| Feature | FusionPact | Pinecone | Chroma | Qdrant | Milvus |
-|---------|:----------:|:--------:|:------:|:------:|:------:|
-| **MCP Server (Agent-Native)** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Agent Memory Architecture** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **One-Click RAG** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Local-First / Zero-Cost** | ✅ | ❌ | ✅ | ✅ | ✅ |
-| **Multi-Tenancy** | ✅ | ✅ | ❌ | ✅ | ✅ |
-| **HNSW Index** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **In-Process (No Server)** | ✅ | ❌ | ✅ | ❌ | ❌ |
-| **< 30s Setup** | ✅ | ❌ | ✅ | ❌ | ❌ |
+---
 
 ## 🔌 Embedding Providers
 
 | Provider | Setup | Dimensions | Cost |
-|----------|-------|-----------|------|
+|---|---|---|---|
 | **Ollama** (recommended) | `ollama pull nomic-embed-text` | 768 | Free |
-| **OpenAI** | Set `OPENAI_API_KEY` | 1536 | $0.02/1M tokens |
+| **OpenAI** | Set `OPENAI_API_KEY` | 1536 | ~$0.02/1M tokens |
 | **Mock** (testing) | None | 64 | Free |
 
-```bash
-# Use Ollama (local, free, private)
-EMBEDDING_PROVIDER=ollama npx fusionpact serve
+```javascript
+// Ollama (local, free, private)
+const fp = create({ embedder: 'ollama' });
 
-# Use OpenAI
-EMBEDDING_PROVIDER=openai OPENAI_API_KEY=sk-... npx fusionpact serve
+// OpenAI
+const fp = create({ embedder: 'openai', openaiConfig: { apiKey: 'sk-...' } });
 
-# Use mock (for demos/testing)
-npx fusionpact serve
+// Mock (for demos/testing — no dependencies)
+const fp = create({ embedder: 'mock' });
 ```
 
-## 📖 Documentation
+---
 
-- [Architecture Design](docs/ARCHITECTURE.md) — HNSW algorithm, multi-tenancy model, RAG pipeline
-- [API Reference](docs/API.md) — HTTP and programmatic API
-- [MCP Integration Guide](docs/MCP.md) — Claude Desktop, Cursor, custom agents
-- [Examples](examples/) — Quickstart, multi-tenant, RAG pipeline
+## 📊 Benchmarks
+
+### HNSW Performance (128D vectors)
+
+| Vectors | Insert | Search (p50) | QPS |
+|---|---|---|---|
+| 1,000 | 15ms | 0.2ms | ~5,000 |
+| 10,000 | 180ms | 0.3ms | ~3,300 |
+| 100,000 | 2.8s | 0.5ms | ~2,000 |
+
+Run your own:
+
+```bash
+npx fusionpact bench --count 10000
+```
+
+---
+
+## 🆚 Comparison
+
+| Feature | FusionPact | PageIndex | Pinecone | Chroma | Qdrant |
+|---|---|---|---|---|---|
+| **Hybrid Retrieval (Vector+Tree+Keyword)** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Reasoning-Based Tree Index** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Agent Memory Architecture** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Multi-Agent Orchestration** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **MCP Server (Agent-Native)** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **One-Click RAG** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Multi-Tenancy** | ✅ | ❌ | ✅ | ❌ | ✅ |
+| **Local-First / Zero-Cost** | ✅ | ✅ | ❌ | ✅ | ✅ |
+| **HNSW Vector Index** | ✅ | ❌ | ✅ | ✅ | ✅ |
+| **Zero Dependencies** | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+---
+
+## 📖 API Reference
+
+Full documentation: [docs/API.md](docs/API.md)
+
+### Core Classes
+
+| Class | Description |
+|---|---|
+| `FusionEngine` | Core database engine, collection management, CRUD |
+| `HNSWIndex` | HNSW approximate nearest neighbor index |
+| `TreeIndex` | Hierarchical document index for reasoning retrieval |
+| `HybridRetriever` | Multi-strategy retrieval with rank fusion |
+| `AgentMemory` | Multi-type agent memory system |
+| `AgentOrchestrator` | Multi-agent coordination layer |
+| `RAGPipeline` | End-to-end RAG pipeline |
+| `MCPServer` | Model Context Protocol server |
+| `OllamaEmbedder` | Ollama embedding provider |
+| `OpenAIEmbedder` | OpenAI embedding provider |
+| `MockEmbedder` | Testing/demo embedder |
+| `LLMProvider` | Multi-provider LLM interface |
+
+---
 
 ## 🗺 Roadmap
 
 - [x] HNSW indexing with configurable M/ef parameters
 - [x] Multi-tenancy with soft-isolation
 - [x] One-Click RAG pipeline
-- [x] Agent Memory (episodic, semantic, procedural)
-- [x] MCP server
+- [x] Agent Memory (episodic, semantic, procedural, shared)
+- [x] Multi-agent orchestration
+- [x] Tree Index (reasoning-based retrieval)
+- [x] Hybrid Retriever (vector + tree + keyword fusion)
+- [x] MCP server (stdio + HTTP)
 - [x] HTTP API server
-- [x] OpenAI + Ollama embedding providers
-- [ ] SQLite persistence layer
+- [x] Ollama + OpenAI embedding providers
+- [x] Adaptive retrieval learning
+- [ ] SQLite/PostgreSQL persistence
+- [ ] Python SDK (`pip install fusionpact`)
 - [ ] LangChain integration
 - [ ] LlamaIndex integration
-- [ ] CrewAI integration
+- [ ] CrewAI / AutoGen integration
+- [ ] Vision RAG (PDF page images)
 - [ ] Rust core (NAPI bindings)
-- [ ] Python SDK
 - [ ] FusionPact Cloud (managed hosting)
 - [ ] Dashboard UI
+
+---
 
 ## 🤝 Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ```bash
-git clone https://github.com/FusionPact/fusionpact-vectordb.git
+git clone https://github.com/FusionpactTech/fusionpact-vectordb.git
 cd fusionpact-vectordb
 npm install
 npm test
-npm run demo
+npx fusionpact demo
 ```
-
-## License
-
-[Apache 2.0](LICENSE) — Use it freely in commercial and open-source projects.
 
 ---
 
-<div align="center">
+## 📜 Attribution
 
-**Built by [FusionPact Technologies](https://fusionpact.com)**
+FusionPact is built and maintained by **[FusionPact Technologies Inc.](https://fusionpact.com)**
+
+If you use FusionPact in your project, please include attribution in one of the following ways:
+
+- Include "Powered by FusionPact" in your application's about page or documentation
+- Keep the `NOTICE` file in your distribution
+- Reference FusionPact Technologies Inc. in your project's acknowledgements
+
+See [ATTRIBUTION.md](ATTRIBUTION.md) for full details.
+
+## License
+
+[Apache 2.0](LICENSE) — Use freely in commercial and open-source projects.
+
+The Apache 2.0 license requires that you:
+1. Include a copy of the license in any redistribution
+2. Include the NOTICE file with attribution to FusionPact Technologies Inc.
+3. State any significant changes you made to the code
+
+---
+
+**Built with ❤️ by [FusionPact Technologies Inc.](https://fusionpact.com)**
 
 ⭐ Star this repo if you find it useful!
-
-</div>

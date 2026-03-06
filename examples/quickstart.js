@@ -1,54 +1,49 @@
 /**
- * FusionPact — Quickstart Example
+ * FusionPact Quickstart Example
+ * 
+ * Demonstrates the core capabilities in under 30 lines.
+ * Built by FusionPact Technologies Inc.
+ * 
  * Run: node examples/quickstart.js
  */
 
-const { FusionEngine, RAGPipeline, AgentMemory, createEmbedder, vec } = require('../src/index');
+const { create } = require('fusionpact');
 
 async function main() {
-  console.log('⚡ FusionPact Quickstart\n');
-  const engine = new FusionEngine();
+  // Create a fully-configured instance (mock embedder for demo)
+  const fp = create({ embedder: 'mock' });
 
-  // 1. Create HNSW collection
-  engine.createCollection('my-docs', { dimension: 64, metric: 'cosine', indexType: 'hnsw' });
-  console.log('✅ Created HNSW-indexed collection');
+  // 1. Ingest a document — auto-chunks, embeds, indexes
+  await fp.rag.ingest(
+    'All employees must complete safety orientation within 30 days of hire. ' +
+    'The orientation covers fire evacuation, chemical handling, and emergency contacts. ' +
+    'PPE must be worn in all laboratory areas. Hard hats required in construction zones.',
+    { source: 'safety-manual.pdf', title: 'Safety Manual 2024' }
+  );
 
-  // 2. Insert vectors
-  const docs = Array.from({ length: 100 }, (_, i) => ({
-    id: `doc-${i}`, vector: vec.random(64),
-    metadata: { category: ['safety', 'legal', 'product'][i % 3], priority: i % 4 },
-  }));
-  engine.insert('my-docs', docs);
-  console.log(`✅ Inserted ${docs.length} documents`);
+  // 2. Build LLM-ready context
+  const context = await fp.rag.buildContext('What PPE is required?');
+  console.log('RAG Context:', context.prompt.substring(0, 200) + '...');
+  console.log('Sources:', context.sources.length, 'chunks\n');
 
-  // 3. Search with filter
-  const result = engine.query('my-docs', vec.random(64), { topK: 3, filter: { category: 'safety' } });
-  console.log(`\n🔍 Search: ${result.results.length} results in ${result.elapsed}ms [${result.method}]`);
-  result.results.forEach((r, i) => console.log(`   [${i+1}] ${r.id} — ${r.score.toFixed(4)}`));
+  // 3. Agent memory
+  await fp.memory.remember('safety-bot', {
+    content: 'User is a new hire in the chemistry department',
+    importance: 0.9
+  });
 
-  // 4. Multi-tenancy
-  engine.createCollection('shared', { dimension: 64 });
-  const tenantA = engine.tenant('shared', 'acme');
-  const tenantB = engine.tenant('shared', 'globex');
-  tenantA.insert(docs.slice(0, 50));
-  tenantB.insert(docs.slice(50));
-  const aRes = tenantA.query(vec.random(64), { topK: 5 });
-  console.log(`\n🔒 Tenant A: ${aRes.results.length} results (isolated from B)`);
+  await fp.memory.learn('safety-bot',
+    'Chemistry lab requires safety goggles, lab coat, and closed-toe shoes',
+    { source: 'lab-policy', category: 'ppe' }
+  );
 
-  // 5. One-Click RAG
-  const rag = new RAGPipeline(engine, { embedder: 'mock' });
-  await rag.ingest('FusionPact is an open-source vector database for AI agents with HNSW indexing and MCP support.', { source: 'readme.md' });
-  const ctx = await rag.buildContext('What is FusionPact?');
-  console.log(`\n📄 RAG: ${ctx.chunks.length} chunks, prompt is ${ctx.prompt.length} chars`);
+  const memories = await fp.memory.recall('safety-bot', 'PPE requirements for chemistry');
+  console.log('Recalled memories:', {
+    episodic: memories.episodic?.length || 0,
+    semantic: memories.semantic?.length || 0
+  });
 
-  // 6. Agent Memory
-  const mem = new AgentMemory(engine, { embedder: 'mock' });
-  await mem.remember('agent-1', { content: 'User asked about safety', role: 'user' });
-  await mem.learn('agent-1', 'OSHA requires annual safety training for confined spaces.');
-  const recalled = await mem.recall('agent-1', 'safety training');
-  console.log(`\n🧠 Memory: recalled ${recalled.length} memories`);
-
-  console.log('\n✅ Done! Next: fusionpact serve --port 8080\n');
+  console.log('\n✅ Done! See https://github.com/FusionpactTech/fusionpact-vectordb for full docs.');
 }
 
 main().catch(console.error);
