@@ -3,23 +3,89 @@
   "name": "io.github.fusionpacttech/fusionpact-vectordb",
   "version": "2.0.0",
   "title": "FusionPact — Agent-Native Retrieval Engine",
-  "description": "Hybrid vector + reasoning + keyword retrieval with built-in agent memory, multi-agent orchestration, and one-click RAG. Zero-dependency and local-first.",
+  "description": "Hybrid vector + reasoning + keyword retrieval with built-in agent memory, multi-agent orchestration, and one-click RAG. The first retrieval engine purpose-built for AI agents. HNSW indexing, reasoning-based tree search, multi-tenancy, conversation memory, and GDPR-friendly data erasure — all zero-dependency and local-first.",
   "websiteUrl": "https://fusionpact.com",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "fusionpact",
       "version": "2.0.0",
-      "transport": { "type": "stdio" },
+      "transport": {
+        "type": "stdio"
+      },
       "packageArguments": ["mcp"],
       "environmentVariables": [
-        { "name": "EMBEDDING_PROVIDER", "description": "ollama (free) | openai | mock", "required": false },
-        { "name": "LLM_PROVIDER", "description": "ollama | openai | anthropic (for tree reasoning)", "required": false }
+        {
+          "name": "EMBEDDING_PROVIDER",
+          "description": "Embedding provider: 'ollama' (free, local), 'openai', or 'mock'",
+          "required": false
+        },
+        {
+          "name": "LLM_PROVIDER",
+          "description": "LLM for tree reasoning: 'ollama', 'openai', or 'anthropic'",
+          "required": false
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "description": "OpenAI API key (only if using openai provider)",
+          "required": false
+        },
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "description": "Anthropic API key (only if using anthropic provider)",
+          "required": false
+        }
       ]
     }
   ],
   "repository": {
     "url": "https://github.com/FusionpactTech/fusionpact-vectordb",
     "source": "github"
-  }
+  },
+  "tools": [
+    {
+      "name": "fusionpact_create_collection",
+      "description": "Create a new HNSW-indexed vector collection"
+    },
+    {
+      "name": "fusionpact_search",
+      "description": "Semantic vector search within a collection"
+    },
+    {
+      "name": "fusionpact_hybrid_search",
+      "description": "Hybrid retrieval combining vector, reasoning-based tree search, and keyword matching"
+    },
+    {
+      "name": "fusionpact_rag_ingest",
+      "description": "One-click RAG: automatically chunk, embed, and index text"
+    },
+    {
+      "name": "fusionpact_rag_query",
+      "description": "Build LLM-ready context from ingested documents"
+    },
+    {
+      "name": "fusionpact_memory_remember",
+      "description": "Store episodic memory for an AI agent"
+    },
+    {
+      "name": "fusionpact_memory_recall",
+      "description": "Recall relevant memories across all memory types"
+    },
+    {
+      "name": "fusionpact_memory_learn",
+      "description": "Add knowledge to an agent's semantic memory"
+    },
+    {
+      "name": "fusionpact_memory_share",
+      "description": "Share knowledge between agents via shared memory pool"
+    },
+    {
+      "name": "fusionpact_memory_forget",
+      "description": "Delete agent memories with GDPR-style data erasure"
+    },
+    {
+      "name": "fusionpact_memory_conversation",
+      "description": "Manage conversation threads — add messages, get history, list threads"
+    }
+  ]
 }

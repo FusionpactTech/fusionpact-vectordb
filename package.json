@@ -1,6 +1,6 @@
 {
   "name": "fusionpact",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "The Agent-Native Retrieval Engine — Hybrid Vector + Reasoning + Memory for AI Agents. HNSW indexing, tree-based reasoning retrieval, built-in RAG, MCP server, multi-agent orchestration, and agent memory architecture.",
   "main": "src/index.js",
   "bin": {

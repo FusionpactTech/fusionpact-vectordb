@@ -36,21 +36,46 @@ npx fusionpact demo
 
 ```javascript
 const fp = require('fusionpact').create({ embedder: 'ollama' });
+
+// Ingest documents
 await fp.rag.ingest('Document text...', { source: 'doc.pdf' });
-const results = await fp.retriever.retrieve('query', { collection: 'default', strategy: 'hybrid' });
+
+// Hybrid retrieval
+const results = await fp.retriever.retrieve('query', {
+  collection: 'default',
+  strategy: 'hybrid'
+});
+
+// Agent memory
 await fp.memory.remember('agent-1', { content: 'User prefers concise answers' });
-const memories = await fp.memory.recall('agent-1', 'user preferences');
+await fp.memory.learn('agent-1', 'OSHA 1910 covers workplace safety');
+const memories = await fp.memory.recall('agent-1', 'safety regulations');
+
+// Multi-agent
+fp.orchestrator.registerAgent({ agentId: 'researcher', capabilities: ['search'] });
+fp.orchestrator.registerAgent({ agentId: 'writer', capabilities: ['writing'] });
+await fp.orchestrator.delegate('coordinator', 'Write a report', {
+  requiredCapabilities: ['writing']
+});
 ```
 
-## MCP Server
+## MCP Server (Claude Desktop / Cursor)
 
 ```json
-{ "mcpServers": { "fusionpact": { "command": "npx", "args": ["fusionpact", "mcp"] } } }
+{
+  "mcpServers": {
+    "fusionpact": {
+      "command": "npx",
+      "args": ["fusionpact", "mcp"],
+      "env": { "EMBEDDING_PROVIDER": "ollama" }
+    }
+  }
+}
 ```
 
-Tools: fusionpact_create_collection, fusionpact_search, fusionpact_hybrid_search, fusionpact_rag_ingest, fusionpact_rag_query, fusionpact_memory_remember, fusionpact_memory_recall, fusionpact_memory_learn, fusionpact_memory_share, fusionpact_memory_forget, fusionpact_memory_conversation
+Available MCP tools: fusionpact_create_collection, fusionpact_search, fusionpact_hybrid_search, fusionpact_rag_ingest, fusionpact_rag_query, fusionpact_memory_remember, fusionpact_memory_recall, fusionpact_memory_learn, fusionpact_memory_share, fusionpact_memory_forget, fusionpact_memory_conversation
 
-## Key Differentiators
+## Key Differentiators vs Alternatives
 
 | Feature | FusionPact | Chroma | Pinecone | Qdrant | PageIndex |
 |---|---|---|---|---|---|
@@ -58,11 +83,18 @@ Tools: fusionpact_create_collection, fusionpact_search, fusionpact_hybrid_search
 | Agent Memory Architecture | Yes | No | No | No | No |
 | Multi-Agent Orchestration | Yes | No | No | No | No |
 | MCP Server Built-in | Yes | No | No | No | Yes |
+| Reasoning-Based Tree Index | Yes | No | No | No | Yes |
 | Zero Dependencies | Yes | No | No | No | No |
 | Local-First / Free | Yes | Yes | No | Yes | Yes |
+
+## Architecture
+
+FusionPact consists of: FusionEngine (core CRUD + collections), HNSWIndex (vector search), TreeIndex (reasoning retrieval), HybridRetriever (multi-strategy fusion), AgentMemory (4 memory types), AgentOrchestrator (multi-agent), RAGPipeline (one-click ingestion), MCPServer (stdio + HTTP), and pluggable embedders (Ollama, OpenAI, Mock).
 
 ## Links
 
 - Repository: https://github.com/FusionpactTech/fusionpact-vectordb
 - npm: https://www.npmjs.com/package/fusionpact
-- Docs: https://github.com/FusionpactTech/fusionpact-vectordb/blob/main/docs/API.md
+- API Docs: https://github.com/FusionpactTech/fusionpact-vectordb/blob/main/docs/API.md
+- Architecture: https://github.com/FusionpactTech/fusionpact-vectordb/blob/main/docs/ARCHITECTURE.md
+- MCP Guide: https://github.com/FusionpactTech/fusionpact-vectordb/blob/main/docs/MCP.md
