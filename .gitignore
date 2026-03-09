@@ -6,3 +6,7 @@ coverage/
 dist/
 *.tgz
 .fusionpact-data/
+
+# Keep .mcp/server.json for MCP Registry
+!.mcp/
+!.mcp/server.json

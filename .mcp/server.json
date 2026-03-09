@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.fusionpacttech/fusionpact-vectordb",
+  "version": "2.0.0",
+  "title": "FusionPact — Agent-Native Retrieval Engine",
+  "description": "Hybrid vector + reasoning + keyword retrieval with built-in agent memory, multi-agent orchestration, and one-click RAG. Zero-dependency and local-first.",
+  "websiteUrl": "https://fusionpact.com",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "fusionpact",
+      "version": "2.0.0",
+      "transport": { "type": "stdio" },
+      "packageArguments": ["mcp"],
+      "environmentVariables": [
+        { "name": "EMBEDDING_PROVIDER", "description": "ollama (free) | openai | mock", "required": false },
+        { "name": "LLM_PROVIDER", "description": "ollama | openai | anthropic (for tree reasoning)", "required": false }
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/FusionpactTech/fusionpact-vectordb",
+    "source": "github"
+  }
+}
