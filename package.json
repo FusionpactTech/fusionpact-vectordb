@@ -1,6 +1,7 @@
 {
   "name": "fusionpact",
-  "version": "2.1.0",
+  "mcpName": "io.github.atul-fusionpact/fusionpact-vectordb",
+  "version": "2.1.1",
   "description": "The Agent-Native Retrieval Engine — Hybrid Vector + Reasoning + Memory for AI Agents. HNSW indexing, tree-based reasoning retrieval, built-in RAG, MCP server, multi-agent orchestration, and agent memory architecture.",
   "main": "src/index.js",
   "bin": {
@@ -16,10 +17,25 @@
     "prepublishOnly": "npm test"
   },
   "keywords": [
-    "vector-database", "retrieval-engine", "hybrid-retrieval", "reasoning-rag",
-    "vectorless-rag", "tree-index", "hnsw", "agent-memory", "mcp-server",
-    "multi-agent", "rag", "ai-agents", "semantic-search", "embeddings",
-    "multi-tenancy", "langchain", "llamaindex", "crewai", "model-context-protocol"
+    "vector-database",
+    "retrieval-engine",
+    "hybrid-retrieval",
+    "reasoning-rag",
+    "vectorless-rag",
+    "tree-index",
+    "hnsw",
+    "agent-memory",
+    "mcp-server",
+    "multi-agent",
+    "rag",
+    "ai-agents",
+    "semantic-search",
+    "embeddings",
+    "multi-tenancy",
+    "langchain",
+    "llamaindex",
+    "crewai",
+    "model-context-protocol"
   ],
   "author": {
     "name": "FusionPact Technologies Inc.",
@@ -38,7 +54,12 @@
     "node": ">=18.0.0"
   },
   "files": [
-    "src/", "bin/", "LICENSE", "NOTICE", "README.md", "ATTRIBUTION.md"
+    "src/",
+    "bin/",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "ATTRIBUTION.md"
   ],
   "dependencies": {},
   "devDependencies": {}

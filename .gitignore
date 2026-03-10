@@ -10,3 +10,9 @@ dist/
 # Keep .mcp/server.json for MCP Registry
 !.mcp/
 !.mcp/server.json
+
+# MCP publisher artifacts
+mcp-publisher.exe
+mcp-publisher*.tar.gz
+.mcpregistry_*
+server.json
